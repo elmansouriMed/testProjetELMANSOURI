@@ -1,0 +1,75 @@
+<!-- createdBy ELMANSOURI Mohamed -->
+<dialog #dialog (click)="backdrop($event)" (cancel)="cancel($event)" aria-labelledby="detail-title">
+  <div class="content">
+    <div class="heading">
+      <h2 id="detail-title">Détail du message</h2>
+      <button class="button secondary" (click)="closed.emit()" aria-label="Fermer le détail">
+        Fermer
+      </button>
+    </div>
+    <app-message-status [status]="message().status" />
+    <dl>
+      <div class="wide">
+        <dt>Identifiant MQ</dt>
+        <dd>{{ message().mqMessageId }}</dd>
+      </div>
+      <div class="wide">
+        <dt>Corrélation</dt>
+        <dd>{{ message().correlationId || '—' }}</dd>
+      </div>
+      <div>
+        <dt>Application</dt>
+        <dd>{{ message().sourceApplication }}</dd>
+      </div>
+      <div>
+        <dt>File d’origine</dt>
+        <dd>{{ message().sourceQueue }}</dd>
+      </div>
+      <div>
+        <dt>Réception</dt>
+        <dd>{{ message().receivedAt | date: 'dd/MM/yyyy HH:mm:ss.SSS' }}</dd>
+      </div>
+      <div>
+        <dt>Émission</dt>
+        <dd>
+          {{
+            message().sentAt ? (message().sentAt | date: 'dd/MM/yyyy HH:mm:ss.SSS') : 'Non fournie'
+          }}
+        </dd>
+      </div>
+      <div>
+        <dt>Format / Taille</dt>
+        <dd>{{ message().bodyType }} · {{ message().payloadSize | byteSize }}</dd>
+      </div>
+      <div>
+        <dt>Relivré lors de l’archivage</dt>
+        <dd>{{ message().redelivered ? 'Oui' : 'Non' }}</dd>
+      </div>
+    </dl>
+    @if (message().rejectionReason) {
+      <p class="quarantine-note">
+        {{ message().rejectionReason }}. Le transfert en quarantaine MQ est effectué après
+        l’enregistrement en base, lors de la validation de la transaction MQ.
+      </p>
+    }
+    @if (error()) {
+      <p class="error" role="alert">{{ error() }}</p>
+    } @else if (loading()) {
+      <app-loader message="Chargement du contenu…" />
+    } @else if (detail(); as content) {
+      <div class="payload-heading">
+        <h3>
+          {{ content.base64Payload !== null ? 'Contenu binaire (Base64)' : 'Contenu du message' }}
+        </h3>
+        @if (content.textPayload !== null || content.base64Payload !== null) {
+          <button class="text-button" (click)="download()">Télécharger</button>
+        }
+      </div>
+      @if (content.textPayload !== null || content.base64Payload !== null) {
+        <pre class="payload">{{ content.textPayload ?? content.base64Payload }}</pre>
+      } @else {
+        <p>Le contenu original est conservé dans MQ, en attente ou dans la file de quarantaine.</p>
+      }
+    }
+  </div>
+</dialog>

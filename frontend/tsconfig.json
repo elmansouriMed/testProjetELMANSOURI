@@ -7,6 +7,11 @@
     "experimentalDecorators": true,
     "skipLibCheck": true,
     "isolatedModules": true,
+    "paths": {
+      "@core/*": ["./src/app/core/*"],
+      "@shared/*": ["./src/app/shared/*"],
+      "@features/*": ["./src/app/features/*"]
+    },
     "lib": ["ES2022", "dom"]
   },
   "angularCompilerOptions": {

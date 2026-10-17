@@ -1,4 +1,5 @@
 #!/usr/bin/env sh
+# createdBy ELMANSOURI Mohamed
 set -eu
 cd "$(dirname "$0")/.."
 if [ -f .env ]; then echo '.env existe déjà ; aucun remplacement effectué.' >&2; exit 1; fi

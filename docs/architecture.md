@@ -7,8 +7,8 @@ Le système reçoit, archive et expose les messages à la consultation. Le conte
 ## Transaction de réception
 
 1. Le `DefaultMessageListenerContainer` ouvre une transaction JMS locale et reçoit le message.
-2. `MessageDecoder` extrait l’identifiant JMS/MQ, la corrélation, la source et le contenu.
-3. Un autre bean Spring appelle `MessageIngestionService.store`, sous `@Transactional`. La contrainte unique et `INSERT ... ON CONFLICT DO NOTHING` arbitrent les doublons, y compris entre instances concurrentes.
+2. `JmsMessageDecoder` extrait l’identifiant JMS/MQ, la corrélation, la source et le contenu.
+3. `MessageMqAdapter` appelle le port `IngestMessageUseCase`. Son implémentation est le décorateur Spring `TransactionalMessageIngestion`, sous `@Transactional`, qui délègue à `ArchiveMessageService` puis au port `MessageArchivePort`. L'adaptateur JDBC applique `INSERT ... ON CONFLICT DO NOTHING` ; la contrainte unique arbitre les doublons, y compris entre instances concurrentes.
 4. Le commit PostgreSQL est terminé avant le retour du service vers le listener.
 5. Si le contenu est refusé, le listener envoie le message d’origine en quarantaine avec **la même session JMS**, en livraison persistante et sans expiration.
 6. Au retour du listener, le conteneur commit la transaction MQ. En cas d’exception, il rollback la réception et l’éventuel envoi en quarantaine.
@@ -44,7 +44,55 @@ La pagination utilise une clé `id < beforeId`, avec tri décroissant et limite 
 
 L’identité SQL correspond à l’ordre d’allocation, pas à un horodatage global ni à l’ordre des commits. La consultation est vivante et ne constitue pas un export transactionnel figé : une transaction tardive ou de nouveaux messages nécessitent une actualisation. Le contrat évite de promettre un instantané global.
 
-Les statistiques scannent les entrées des dernières 24 h et sont cachées 5 secondes par instance. À plusieurs dizaines de millions d’entrées par jour, prévoir des agrégats alimentés séparément. Prévoir aussi le partitionnement temporel, un registre de déduplication indépendant, une rétention paramétrée et du stockage d’archives si nécessaire. Ces extensions exigent une volumétrie et des objectifs de latence chiffrés.
+Les lectures restent limitées à une page de métadonnées ou au contenu du message sélectionné. Le dimensionnement, la rétention et le partitionnement seront fixés avec les objectifs de volumétrie du client.
+
+## Conception hexagonale du backend
+
+Le module fonctionnel `messages` possède trois couches :
+
+- `domain` : records immuables, types énumérés et invariants. Les tableaux d'octets sont copiés pour ne pas exposer un état mutable.
+- `application` : ports entrants `IngestMessageUseCase` et `ConsultMessagesUseCase`, port sortant `MessageArchivePort` et services Java. Aucun import Spring, JDBC, JMS ou IBM.
+- `infrastructure` : adaptateurs MQ, REST et PostgreSQL, mapping des DTO, transaction et configuration Spring.
+
+```mermaid
+flowchart LR
+  MQ[Adaptateur JMS] --> Ingest[Port ingestion]
+  REST[Adaptateur REST] --> Consult[Port consultation]
+  Ingest --> TX[Décorateur transactionnel]
+  TX --> Archive[Service archivage]
+  Consult --> Query[Service consultation]
+  Archive --> Port[Port de stockage]
+  Query --> Port
+  JDBC[Adaptateur JDBC] -. implémente .-> Port
+  JDBC --> DB[(PostgreSQL)]
+```
+
+`MessageBeanConfiguration` assemble les services et le décorateur. Le bean d'ingestion injecté dans l'adaptateur MQ est le décorateur proxifié par Spring : la transaction SQL est donc terminée avant le retour au listener. Le service métier ne dépend pas de la transaction Spring et n'est pas enregistré une seconde fois comme bean d'ingestion.
+
+Les DTO HTTP restent dans l'adaptateur REST. `MessageResponseMapper` transforme les identifiants 64 bits en chaînes et le contenu en texte UTF-8 ou Base64. Le domaine et le stockage ne connaissent pas ces choix de transport. Les transformations de listes utilisent les streams Java ; le décodage JMS emploie le pattern matching de Java 21.
+
+| Pattern | Usage et raison |
+|---|---|
+| Ports et adaptateurs | Les cas d'utilisation restent indépendants des protocoles et de PostgreSQL |
+| Repository via un port | Le contrat de stockage est testable sans imposer un framework de persistance |
+| Decorator | La transaction encadre l'ingestion sans annotation Spring dans le cœur |
+| Mapper | Les réponses REST sont séparées des modèles et des octets stockés |
+| Facade | Une façade Angular centralise recherche, pagination et sélection pour la page |
+| Observer via RxJS | Les changements de recherche pilotent les requêtes annulables et leur état |
+
+JDBC reste adapté aux requêtes SQL précises du projet ; introduire JPA n'améliorerait pas le besoin actuel. Il n'y a ni hiérarchie artificielle de services, ni factories pour chaque DTO, ni répertoires vides. Les quatre règles ArchUnit vérifient l'indépendance du cœur, l'absence d'accès direct des adaptateurs entrants au stockage concret et l'absence de cycles entre les couches.
+
+## Organisation Angular et flux réactifs
+
+`core` regroupe les services transversaux uniques (URL API, intercepteur d'erreur, en-tête). `shared` contient uniquement le loader et le pipe de taille réutilisables. La fonctionnalité `features/messages` regroupe sa route, sa page, ses composants de présentation, son client HTTP, ses modèles et son état. Les alias TypeScript `@core`, `@shared` et `@features` raccourcissent les imports transversaux ; les imports internes à la fonctionnalité restent relatifs.
+
+La route `/messages` charge la page à la demande. Les composants standalone utilisent `OnPush`, les entrées/sorties `input` et `output`, et les templates `@if`/`@for` avec suivi par identifiant. Le bootstrap active la détection des changements zoneless. Les dates utilisent la locale française.
+
+`MessagesStore` est fourni au niveau de la page. Ses flux RxJS reçoivent les recherches et sélections ; `switchMap` annule la requête précédente, notamment lorsqu'on ferme un détail en cours de chargement. Chaque requête émet un état de chargement puis un résultat ou une erreur. `catchError` reste dans le flux interne pour qu'une erreur n'empêche pas les recherches suivantes. `toSignal` expose cet état aux templates et gère le désabonnement avec le cycle de vie de la page. Les composants de présentation n'appellent pas `HttpClient` et ne font pas de `subscribe` manuel.
+
+Le formulaire réactif typé valide la longueur des filtres et l'ordre des dates avant émission. Le bouton Rechercher déclenche explicitement la recherche ; il n'y a pas de requête à chaque frappe. Le retour à une page précédente conserve les filtres appliqués. L'intercepteur fonctionnel transforme les erreurs API en messages lisibles sans exposer les détails SQL. La fenêtre native `dialog` gère le focus modal et la fermeture par Échap ; Angular échappe le contenu affiché. Les formulaires réactifs typés suffisent ici, sans dépendance à une API de formulaire expérimentale.
+
+Prettier utilise explicitement le parseur Angular pour les templates et le pipeline vérifie le formatage. Les tests couvrent l'annulation, la reprise après erreur, la pagination, le nettoyage à la destruction, le formulaire, les erreurs HTTP et l'affichage échappé.
 
 ## Déploiement bancaire
 
@@ -57,4 +105,7 @@ L’interface et l’API n’intègrent aucune authentification, selon la demand
 - [Spring : transactions JMS locales et détection des doublons](https://docs.spring.io/spring-framework/reference/integration/jms/receiving.html)
 - [Spring Boot : prérequis](https://docs.spring.io/spring-boot/system-requirements.html)
 - [Angular : compatibilité Node et TypeScript](https://angular.dev/reference/versions)
+- [Angular : organisation par fonctionnalité](https://angular.dev/style-guide)
+- [Angular : interopérabilité RxJS et signals](https://angular.dev/ecosystem/rxjs-interop)
+- [Angular : formulaires typés](https://angular.dev/guide/forms/typed-forms)
 - [IBM MQ : configuration de l’image de développement](https://github.com/ibm-messaging/mq-container/blob/master/docs/developer-config.md)

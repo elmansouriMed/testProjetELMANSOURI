@@ -86,28 +86,6 @@ paths:
         '404':
           description: Aucun message pour cet identifiant.
         '503': {$ref: '#/components/responses/Unavailable'}
-  /api/messages/statistics:
-    get:
-      operationId: getStatistics
-      summary: Indicateurs glissants et état du listener, cache 5 secondes par instance
-      responses:
-        '200':
-          description: La disponibilité du listener ne garantit pas celle du queue manager.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [received24h, quarantined24h, received5m, bytes24h, sampledAt, mqEnabled, listenerRunning, recovering]
-                properties:
-                  received24h: {type: integer, format: int64, minimum: 0}
-                  quarantined24h: {type: integer, format: int64, minimum: 0}
-                  received5m: {type: integer, format: int64, minimum: 0}
-                  bytes24h: {type: integer, format: int64, minimum: 0}
-                  sampledAt: {type: string, format: date-time}
-                  mqEnabled: {type: boolean}
-                  listenerRunning: {type: boolean}
-                  recovering: {type: boolean}
-        '503': {$ref: '#/components/responses/Unavailable'}
 components:
   responses:
     BadRequest:

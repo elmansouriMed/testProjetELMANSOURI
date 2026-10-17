@@ -1,0 +1,86 @@
+/* createdBy ELMANSOURI Mohamed */
+main {
+  max-width: 1240px;
+  margin: auto;
+  padding: 32px 24px 20px;
+  min-width: 0;
+}
+.page-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+.page-heading p {
+  margin: 0;
+  color: #687b89;
+  font-size: 13px;
+}
+.messages {
+  padding: 0;
+  overflow: hidden;
+}
+.list-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 22px 24px;
+}
+.list-heading h2 {
+  margin: 0;
+}
+.list-heading > span {
+  color: #7c8c98;
+  font-size: 11px;
+}
+.empty {
+  padding: 24px;
+  color: #778b99;
+  min-height: 100px;
+}
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  border-top: 1px solid #e2e9ee;
+  padding: 16px 24px;
+}
+.pagination > span {
+  color: #738796;
+  font-size: 11px;
+}
+.pagination > div {
+  display: flex;
+  gap: 10px;
+}
+footer {
+  color: #7c8e9b;
+  font-size: 11px;
+  text-align: center;
+  margin-top: 26px;
+}
+@media (max-width: 520px) {
+  main {
+    padding: 24px 14px 16px;
+  }
+  .page-heading {
+    align-items: start;
+    gap: 14px;
+  }
+  .page-heading p {
+    font-size: 11px;
+  }
+  .list-heading,
+  .pagination {
+    flex-direction: column;
+    align-items: start;
+    padding: 18px 16px;
+  }
+  .pagination > div {
+    width: 100%;
+    justify-content: space-between;
+  }
+}

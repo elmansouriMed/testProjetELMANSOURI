@@ -1,0 +1,66 @@
+<!-- createdBy ELMANSOURI Mohamed -->
+<main>
+  <div class="page-heading">
+    <div>
+      <h1>Messages de paiement</h1>
+      <p>Messages reçus des applications Back Office et archivés depuis IBM MQ.</p>
+    </div>
+    <button class="button secondary" (click)="store.refresh()" [disabled]="store.state().loading">
+      Actualiser
+    </button>
+  </div>
+  <app-message-filters (filtersApplied)="store.search($event)" />
+  @if (store.state().error) {
+    <div class="error" role="alert">{{ store.state().error }}</div>
+  }
+  <section class="panel messages" aria-labelledby="messages-title">
+    <div class="list-heading">
+      <h2 id="messages-title">Messages archivés</h2>
+      <span>Les plus récents en premier</span>
+    </div>
+    @if (store.state().loading) {
+      <app-loader />
+    } @else if (store.page().items.length) {
+      <app-message-table [messages]="store.page().items" (messageSelected)="store.select($event)" />
+    } @else {
+      <p class="empty">
+        {{
+          store.state().error
+            ? 'Messages indisponibles.'
+            : 'Aucun message ne correspond à la recherche.'
+        }}
+      </p>
+    }
+    <div class="pagination">
+      <span
+        >{{ store.page().items.length }} message(s) sur cette page · Page
+        {{ store.pageNumber() }}</span
+      >
+      <div>
+        <button
+          class="button secondary"
+          (click)="store.newer()"
+          [disabled]="store.pageNumber() === 1 || store.state().loading"
+        >
+          Plus récents</button
+        ><button
+          class="button secondary"
+          (click)="store.older()"
+          [disabled]="!store.page().hasMore || store.state().loading"
+        >
+          Plus anciens
+        </button>
+      </div>
+    </div>
+  </section>
+  <footer>Payment Hub · ELMANSOURI Mohamed</footer>
+</main>
+@if (store.selectedMessage(); as selected) {
+  <app-message-detail
+    [message]="selected"
+    [detail]="store.detailState().data"
+    [loading]="store.detailState().loading"
+    [error]="store.detailState().error"
+    (closed)="store.closeDetail()"
+  />
+}

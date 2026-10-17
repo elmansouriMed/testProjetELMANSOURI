@@ -1,0 +1,83 @@
+/* createdBy ELMANSOURI Mohamed */
+dialog {
+  border: 1px solid #dbe4ea;
+  border-radius: 10px;
+  padding: 0;
+  width: min(740px, calc(100vw - 32px));
+  max-height: 90vh;
+  color: #344f61;
+}
+dialog::backdrop {
+  background: #152f4377;
+}
+.content {
+  padding: 26px;
+}
+.heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+.heading h2 {
+  margin: 0;
+  font-size: 21px;
+}
+dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  margin-block: 24px;
+}
+.wide {
+  grid-column: 1/-1;
+}
+dt {
+  color: #8295a2;
+  font-size: 11px;
+  margin-bottom: 7px;
+}
+dd {
+  margin: 0;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.wide dd {
+  font-family: ui-monospace, Consolas, monospace;
+}
+.payload-heading {
+  border-top: 1px solid #e2e9ee;
+  padding-top: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+.payload {
+  padding: 18px;
+  background: #f3f6f8;
+  border: 1px solid #e1e8ed;
+  border-radius: 5px;
+  max-height: 300px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.quarantine-note {
+  padding: 14px;
+  background: #fff6e8;
+  color: #916726;
+  border-radius: 5px;
+  font-size: 12px;
+}
+@media (max-width: 520px) {
+  .content {
+    padding: 20px;
+  }
+  dl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

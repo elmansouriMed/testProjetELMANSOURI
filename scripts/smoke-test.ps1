@@ -1,3 +1,4 @@
+# createdBy ELMANSOURI Mohamed
 param([string]$BaseUrl = 'http://localhost:8080', [string]$UiUrl = 'http://localhost:4200')
 $ErrorActionPreference = 'Stop'
 Set-Location (Split-Path -Parent $PSScriptRoot)

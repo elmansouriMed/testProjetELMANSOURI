@@ -1,3 +1,4 @@
+# createdBy ELMANSOURI Mohamed
 param([switch]$AcceptMqLicense)
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot

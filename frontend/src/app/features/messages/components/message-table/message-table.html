@@ -1,0 +1,55 @@
+<!-- createdBy ELMANSOURI Mohamed -->
+<div class="table-container">
+  <table>
+    <thead>
+      <tr>
+        <th>Identifiant MQ / Corrélation</th>
+        <th>Application</th>
+        <th>Réception</th>
+        <th>Format / Taille</th>
+        <th>Statut</th>
+        <th><span class="sr-only">Détail</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (message of messages(); track message.id) {
+        <tr>
+          <td class="identifiers">
+            <button
+              class="message-link"
+              (click)="messageSelected.emit(message)"
+              [title]="message.mqMessageId"
+            >
+              {{ message.mqMessageId }}</button
+            ><small [title]="message.correlationId ?? ''">{{
+              message.correlationId || 'Sans corrélation'
+            }}</small>
+          </td>
+          <td class="source-label">{{ message.sourceApplication }}</td>
+          <td>
+            {{ message.receivedAt | date: 'dd/MM/yyyy'
+            }}<small>{{ message.receivedAt | date: 'HH:mm:ss' }}</small>
+          </td>
+          <td>
+            {{ message.bodyType }}<small>{{ message.payloadSize | byteSize }}</small>
+          </td>
+          <td>
+            <app-message-status [status]="message.status" />
+            @if (message.redelivered) {
+              <small>Relivré par MQ</small>
+            }
+          </td>
+          <td>
+            <button
+              class="text-button"
+              (click)="messageSelected.emit(message)"
+              [attr.aria-label]="'Consulter le message ' + message.id"
+            >
+              Voir
+            </button>
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>

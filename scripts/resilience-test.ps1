@@ -1,3 +1,4 @@
+# createdBy ELMANSOURI Mohamed
 # À utiliser uniquement avec la pile Compose de développement de ce dépôt.
 param([string]$BaseUrl = 'http://localhost:8080')
 $ErrorActionPreference = 'Stop'

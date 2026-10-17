@@ -1,0 +1,43 @@
+<!-- createdBy ELMANSOURI Mohamed -->
+<section class="panel" aria-labelledby="filters-title">
+  <h2 id="filters-title">Rechercher un message</h2>
+  <form [formGroup]="form" (ngSubmit)="apply()">
+    <div class="filters">
+      <label
+        >Identifiant MQ exact<input
+          formControlName="mqMessageId"
+          placeholder="ID:…"
+          maxlength="512"
+      /></label>
+      <label
+        >Application source<input
+          formControlName="source"
+          placeholder="Exemple : BO-SEPA"
+          maxlength="128"
+      /></label>
+      <label for="status"
+        >Statut<select id="status" formControlName="status">
+          <option value="">Tous les statuts</option>
+          <option value="STORED">Archivé</option>
+          <option value="QUARANTINED">En quarantaine</option>
+        </select></label
+      >
+      <label
+        >Corrélation exacte<input
+          formControlName="correlationId"
+          placeholder="Identifiant de corrélation"
+          maxlength="512"
+      /></label>
+      <label>Reçu à partir du<input type="datetime-local" formControlName="from" /></label>
+      <label>Reçu avant le<input type="datetime-local" formControlName="to" /></label>
+    </div>
+    <div class="actions">
+      <button class="button" type="submit">Rechercher</button
+      ><button class="button secondary" type="button" (click)="reset()">Réinitialiser</button
+      ><small>Les dates utilisent le fuseau horaire de votre navigateur.</small>
+    </div>
+    @if (error()) {
+      <p class="error" role="alert">{{ error() }}</p>
+    }
+  </form>
+</section>

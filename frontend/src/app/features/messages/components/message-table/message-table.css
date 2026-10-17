@@ -1,0 +1,86 @@
+/* createdBy ELMANSOURI Mohamed */
+.table-container {
+  overflow-x: auto;
+}
+table {
+  width: 100%;
+  min-width: 840px;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+thead {
+  background: #f5f8fa;
+}
+th {
+  color: #657c8c;
+  text-align: left;
+  font-size: 11px;
+  padding: 14px 16px;
+  border-block: 1px solid #e2e9ee;
+}
+th:first-child {
+  width: 34%;
+  padding-left: 24px;
+}
+th:nth-child(2) {
+  width: 15%;
+}
+th:nth-child(3) {
+  width: 16%;
+}
+th:nth-child(4) {
+  width: 12%;
+}
+th:nth-child(5) {
+  width: 16%;
+}
+th:last-child {
+  width: 7%;
+}
+td {
+  border-bottom: 1px solid #edf1f4;
+  padding: 16px;
+  vertical-align: top;
+}
+td:first-child {
+  padding-left: 24px;
+}
+tbody tr:last-child td {
+  border-bottom: 0;
+}
+tbody tr:hover {
+  background: #fafcfd;
+}
+td small {
+  display: block;
+  font-size: 10px;
+  color: #7c8e9b;
+  margin-top: 7px;
+}
+.identifiers {
+  overflow: hidden;
+}
+.identifiers small {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.message-link {
+  font:
+    11px ui-monospace,
+    Consolas,
+    monospace;
+  color: #21657e;
+  background: none;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.message-link:hover {
+  text-decoration: underline;
+}
