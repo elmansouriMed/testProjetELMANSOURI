@@ -1,0 +1,452 @@
+<div class="app-shell">
+  <aside class="sidebar">
+    <a class="brand" href="/" aria-label="Payment Hub, accueil"
+      ><span class="brand-symbol">p<span>h</span></span
+      ><span
+        >payment<span class="brand-light">hub</span
+        ><small>PAYMENT OPERATIONS</small></span
+      ></a
+    >
+    <div class="workspace-label">ESPACE DE TRAVAIL</div>
+    <a href="#messages" class="nav-item active"
+      ><span aria-hidden="true">▤</span> Messages
+      <span class="nav-pill">MQ</span></a
+    >
+    <div class="sidebar-flow">
+      <span class="eyebrow">FLUX D’ARCHIVAGE</span>
+      <div><i></i> Back Office</div>
+      <span class="flow-line"></span>
+      <div><i></i> IBM MQ</div>
+      <span class="flow-line"></span>
+      <div><i class="filled"></i> PostgreSQL</div>
+    </div>
+    <div class="sidebar-bottom">
+      <span class="small-dot"></span> Consultation des paiements<small
+        >Payment Message Hub · v1.0</small
+      >
+    </div>
+  </aside>
+  <main id="messages">
+    <header class="topbar">
+      <div>
+        <span class="breadcrumb">Opérations</span
+        ><span class="separator">/</span><span>Messages</span>
+      </div>
+      <span class="environment">ARCHIVE MQ</span>
+    </header>
+    <section class="page-content">
+      <div class="page-heading">
+        <div>
+          <div class="eyebrow">SUPERVISION DES FLUX</div>
+          <h1>Messages de paiement<span class="heading-dot">.</span></h1>
+          <p>
+            Retrouvez et inspectez les messages reçus depuis vos applications
+            Back Office.
+          </p>
+        </div>
+        <button
+          class="button secondary refresh"
+          (click)="refresh()"
+          [disabled]="loading()"
+        >
+          <span aria-hidden="true">↻</span> Actualiser
+        </button>
+      </div>
+      <div class="connection-strip">
+        <div>
+          <span
+            class="live-dot"
+            [class.offline]="
+              !stats() ||
+              statsError() ||
+              !stats()!.mqEnabled ||
+              !stats()!.listenerRunning ||
+              stats()!.recovering
+            "
+          ></span>
+          @if (statsError()) {
+            État du consommateur indisponible
+          } @else if (!stats()) {
+            Chargement de l’état…
+          } @else if (!stats()!.mqEnabled) {
+            Consommation MQ désactivée
+          } @else if (stats()!.recovering) {
+            Reconnexion à IBM MQ en cours
+          } @else if (stats()!.listenerRunning) {
+            Consommateur MQ actif
+          } @else {
+            Consommateur MQ arrêté
+          }
+          <span class="strip-note">Stockage avant acquittement</span>
+        </div>
+        <span class="update-time">
+          @if (lastUpdated()) {
+            Actualisé à {{ lastUpdated() | date: "HH:mm:ss" }}
+          }
+        </span>
+      </div>
+      <section class="metrics" aria-label="Indicateurs des dernières 24 heures">
+        <article class="metric">
+          <div class="metric-label">Messages reçus <span>24 h</span></div>
+          <div class="metric-value">
+            {{
+              stats() && !statsError() ? (stats()!.received24h | number) : "—"
+            }}
+          </div>
+          <div class="metric-caption">
+            <span class="tiny-bar"></span> Tous les messages archivés
+          </div>
+        </article>
+        <article class="metric">
+          <div class="metric-label">Activité récente <span>5 min</span></div>
+          <div class="metric-value">
+            {{
+              stats() && !statsError() ? (stats()!.received5m | number) : "—"
+            }}
+          </div>
+          <div class="metric-caption">Nouvelles entrées dans l’archive</div>
+        </article>
+        <article class="metric">
+          <div class="metric-label">En quarantaine <span>24 h</span></div>
+          <div class="metric-value warning-value">
+            {{
+              stats() && !statsError()
+                ? (stats()!.quarantined24h | number)
+                : "—"
+            }}
+          </div>
+          <div class="metric-caption">Messages à examiner</div>
+        </article>
+        <article class="metric">
+          <div class="metric-label">Volume reçu <span>24 h</span></div>
+          <div class="metric-value volume">
+            {{ stats() && !statsError() ? bytes(stats()!.bytes24h) : "—" }}
+          </div>
+          <div class="metric-caption">Taille des contenus reçus</div>
+        </article>
+      </section>
+      @if (statsError()) {
+        <p class="stats-warning" role="status">
+          Les indicateurs sont temporairement indisponibles.
+        </p>
+      }
+      <section class="message-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Journal des messages</h2>
+            <span>Les messages les plus récents en premier</span>
+          </div>
+          <label class="auto-refresh"
+            ><input type="checkbox" [(ngModel)]="autoRefresh" /> Actualisation ·
+            15 s</label
+          >
+        </div>
+        <form class="filters" (ngSubmit)="apply()">
+          <label class="field search-field"
+            ><span>Identifiant MQ exact</span
+            ><input
+              name="mqId"
+              [(ngModel)]="filters.mqMessageId"
+              placeholder="Rechercher un identifiant MQ…"
+              maxlength="512"
+          /></label>
+          <label class="field"
+            ><span>Application source</span
+            ><input
+              name="source"
+              [(ngModel)]="filters.source"
+              placeholder="Toutes les applications"
+              maxlength="128"
+          /></label>
+          <label class="field"
+            ><span>Statut</span
+            ><select name="status" [(ngModel)]="filters.status">
+              <option value="">Tous les statuts</option>
+              <option value="STORED">Archivé</option>
+              <option value="QUARANTINED">En quarantaine</option>
+            </select></label
+          >
+          <button class="button primary filter-button" type="submit">
+            Rechercher <span aria-hidden="true">→</span>
+          </button>
+          <div class="filter-options">
+            <button
+              type="button"
+              class="text-button"
+              (click)="advanced = !advanced"
+              [attr.aria-expanded]="advanced"
+              aria-controls="advanced-filters"
+            >
+              {{ advanced ? "−" : "+" }} Filtres avancés</button
+            ><button type="button" class="text-button muted" (click)="reset()">
+              Réinitialiser
+            </button>
+          </div>
+          @if (advanced) {
+            <div class="advanced-filters" id="advanced-filters">
+              <label class="field"
+                ><span>Corrélation exacte</span
+                ><input
+                  name="correlation"
+                  [(ngModel)]="filters.correlationId"
+                  placeholder="Identifiant de corrélation"
+                  maxlength="512" /></label
+              ><label class="field"
+                ><span>Reçu à partir du (heure locale)</span
+                ><input
+                  type="datetime-local"
+                  name="from"
+                  [(ngModel)]="filters.from" /></label
+              ><label class="field"
+                ><span>Reçu avant le (heure locale)</span
+                ><input
+                  type="datetime-local"
+                  name="to"
+                  [(ngModel)]="filters.to"
+              /></label>
+            </div>
+          }
+        </form>
+        @if (error()) {
+          <div class="error-banner" role="alert">
+            {{ error() }}
+            <button class="text-button" (click)="refresh()">Réessayer</button>
+          </div>
+        }
+        <div class="table-container" [attr.aria-busy]="loading()">
+          <table>
+            <thead>
+              <tr>
+                <th>MESSAGE / CORRÉLATION</th>
+                <th>APPLICATION</th>
+                <th>RÉCEPTION</th>
+                <th>FORMAT / TAILLE</th>
+                <th>STATUT</th>
+                <th><span class="sr-only">Détail</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              @if (loading()) {
+                <tr>
+                  <td colspan="6" class="empty-state">
+                    <span class="spinner"></span
+                    ><strong>Chargement des messages…</strong>
+                  </td>
+                </tr>
+              } @else {
+                @for (message of page().items; track message.id) {
+                  <tr>
+                    <td class="message-identifiers">
+                      <button
+                        class="message-link"
+                        (click)="open(message)"
+                        [title]="message.mqMessageId"
+                      >
+                        {{ message.mqMessageId }}</button
+                      ><span [title]="message.correlationId ?? ''">{{
+                        message.correlationId || "Sans corrélation"
+                      }}</span>
+                    </td>
+                    <td>
+                      <span class="source-label"
+                        ><span class="source-icon" aria-hidden="true">↗</span
+                        >{{ message.sourceApplication }}</span
+                      >
+                    </td>
+                    <td class="date-cell">
+                      {{ message.receivedAt | date: "dd MMM yyyy"
+                      }}<small>{{
+                        message.receivedAt | date: "HH:mm:ss"
+                      }}</small>
+                    </td>
+                    <td>
+                      <span class="format-label">{{ message.bodyType }}</span
+                      ><small class="size-label">{{
+                        bytes(message.payloadSize)
+                      }}</small>
+                    </td>
+                    <td>
+                      <span
+                        class="status-badge"
+                        [class.quarantined]="message.status === 'QUARANTINED'"
+                        ><i></i>{{ status(message.status) }}</span
+                      >
+                      @if (message.redelivered) {
+                        <small class="redelivery">Relivré</small>
+                      }
+                    </td>
+                    <td>
+                      <button
+                        class="row-action"
+                        (click)="open(message)"
+                        [attr.aria-label]="'Consulter le message ' + message.id"
+                      >
+                        ↗
+                      </button>
+                    </td>
+                  </tr>
+                } @empty {
+                  <tr>
+                    <td colspan="6" class="empty-state">
+                      <div class="empty-icon" aria-hidden="true">▤</div>
+                      <strong>{{
+                        error()
+                          ? "Messages indisponibles"
+                          : "Aucun message à afficher"
+                      }}</strong
+                      ><span>{{
+                        error()
+                          ? "Réessayez lorsque l’API est disponible."
+                          : "Les messages consommés depuis IBM MQ apparaîtront ici. Ajustez les filtres si nécessaire."
+                      }}</span>
+                    </td>
+                  </tr>
+                }
+              }
+            </tbody>
+          </table>
+        </div>
+        <footer class="table-footer">
+          <span
+            >{{ page().items.length }} message(s) sur cette page
+            <span class="footer-divider">·</span> Page {{ pageNumber() }}</span
+          >
+          <div>
+            <button
+              class="pagination"
+              (click)="newer()"
+              [disabled]="pageNumber() === 1 || loading()"
+            >
+              ← Plus récents</button
+            ><button
+              class="pagination"
+              (click)="older()"
+              [disabled]="!page().hasMore || loading()"
+            >
+              Plus anciens →
+            </button>
+          </div>
+        </footer>
+      </section>
+      <footer class="page-footer">
+        <span
+          ><span class="lock-symbol" aria-hidden="true">◇</span> Intégrité des
+          messages · Détection des doublons à l’ingestion</span
+        ><span>Dates affichées dans le fuseau de votre navigateur</span>
+      </footer>
+    </section>
+  </main>
+</div>
+<dialog
+  #details
+  class="detail-dialog"
+  (click)="backdrop($event)"
+  (cancel)="close()"
+  aria-labelledby="detail-title"
+>
+  <div class="detail-content">
+    <div class="detail-header">
+      <div>
+        <div class="eyebrow">INSPECTION DU MESSAGE</div>
+        <h2 id="detail-title">Détail de l’archive</h2>
+      </div>
+      <button
+        class="close-button"
+        (click)="close()"
+        aria-label="Fermer le détail"
+      >
+        ×
+      </button>
+    </div>
+    @if (selected(); as m) {
+      <span
+        class="status-badge"
+        [class.quarantined]="m.status === 'QUARANTINED'"
+        ><i></i>{{ status(m.status) }}</span
+      >
+      <dl class="metadata">
+        <div>
+          <dt>Identifiant MQ</dt>
+          <dd>{{ m.mqMessageId }}</dd>
+        </div>
+        <div>
+          <dt>Corrélation</dt>
+          <dd>{{ m.correlationId || "—" }}</dd>
+        </div>
+        <div>
+          <dt>Application source</dt>
+          <dd>{{ m.sourceApplication }}</dd>
+        </div>
+        <div>
+          <dt>File d’origine</dt>
+          <dd>{{ m.sourceQueue }}</dd>
+        </div>
+        <div>
+          <dt>Réception</dt>
+          <dd>{{ m.receivedAt | date: "dd/MM/yyyy HH:mm:ss.SSS" }}</dd>
+        </div>
+        <div>
+          <dt>Émission</dt>
+          <dd>
+            {{
+              m.sentAt
+                ? (m.sentAt | date: "dd/MM/yyyy HH:mm:ss.SSS")
+                : "Non fournie"
+            }}
+          </dd>
+        </div>
+        <div>
+          <dt>Format · taille</dt>
+          <dd>{{ m.bodyType }} · {{ bytes(m.payloadSize) }}</dd>
+        </div>
+        <div>
+          <dt>Relivraison MQ</dt>
+          <dd>
+            {{
+              m.redelivered
+                ? "Oui, lors du premier archivage"
+                : "Non, lors du premier archivage"
+            }}
+          </dd>
+        </div>
+      </dl>
+      @if (m.rejectionReason) {
+        <div class="quarantine-note">
+          {{ m.rejectionReason }}. Le message original est transféré dans la
+          file de quarantaine MQ après validation de la transaction.
+        </div>
+      }
+    }
+    @if (detailError()) {
+      <p class="error-banner" role="alert">{{ detailError() }}</p>
+    } @else if (detail(); as d) {
+      <div class="payload-header">
+        <h3>
+          {{
+            d.base64Payload !== null
+              ? "Contenu binaire · Base64"
+              : "Contenu du message"
+          }}
+        </h3>
+        @if (d.textPayload !== null || d.base64Payload !== null) {
+          <div>
+            <button class="text-button" (click)="copy()">Copier</button
+            ><button class="text-button" (click)="download()">
+              Télécharger
+            </button>
+          </div>
+        }
+      </div>
+      @if (d.textPayload !== null || d.base64Payload !== null) {
+        <pre class="payload">{{ d.textPayload ?? d.base64Payload }}</pre>
+      } @else {
+        <p class="payload-unavailable">
+          Le contenu original est conservé dans la file de quarantaine MQ.
+        </p>
+      }
+    } @else {
+      <p role="status">Chargement du contenu…</p>
+    }
+    <p class="copy-notice" role="status">{{ notice() }}</p>
+  </div>
+</dialog>

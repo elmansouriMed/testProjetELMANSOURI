@@ -1,0 +1,51 @@
+spring:
+  application:
+    name: payment-message-hub
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/payments}
+    username: ${DB_USER:payments}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:16}
+      minimum-idle: 2
+      connection-timeout: 5000
+      validation-timeout: 2000
+      data-source-properties:
+        socketTimeout: 15
+        connectTimeout: 5
+        options: -c statement_timeout=10000
+  flyway:
+    enabled: true
+server:
+  port: 8080
+  shutdown: graceful
+  error:
+    include-message: never
+spring.lifecycle.timeout-per-shutdown-phase: 30s
+app:
+  mq:
+    host: ${MQ_HOST:localhost}
+    port: ${MQ_PORT:1414}
+    queue-manager: ${MQ_QUEUE_MANAGER:QM1}
+    channel: ${MQ_CHANNEL:DEV.APP.SVRCONN}
+    user: ${MQ_USER:app}
+    password: ${MQ_PASSWORD:}
+    input-queue: ${MQ_INPUT_QUEUE:DEV.PAYMENTS.IN}
+    quarantine-queue: ${MQ_QUARANTINE_QUEUE:DEV.PAYMENTS.QUARANTINE}
+    consumers: ${MQ_CONSUMERS:4}
+    max-payload-bytes: ${MQ_MAX_PAYLOAD_BYTES:1048576}
+    enabled: ${MQ_ENABLED:true}
+    ssl-cipher-suite: ${MQ_SSL_CIPHER_SUITE:}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+      group:
+        readiness:
+          include: readinessState,db
