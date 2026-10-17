@@ -4,10 +4,10 @@
 
 | Vérification | Résultat |
 |---|---|
-| Maven `verify` | 21 tests backend réussis, aucun échec ni test ignoré |
+| Maven `verify` | 56 tests backend réussis, dont 18 cas d'intégration PostgreSQL/HTTP ; aucun échec ni test ignoré |
 | Architecture Java | 4 règles ArchUnit : indépendance du cœur, dépendances vers le cœur, isolation des adaptateurs et absence de cycles |
 | PostgreSQL éphémère des tests | Migrations, transactions, concurrence de déduplication, filtres et API HTTP validés |
-| Angular 22 / Node 24.15 | 15 tests réussis ; build de production et contrôle Prettier réussis |
+| Angular 22 / Node 24.15 | 27 tests réussis, dont 3 tests d'intégration de la page ; build de production et contrôle Prettier réussis |
 | Flux Angular | Annulation des requêtes obsolètes, reprise après erreur, curseurs et libération des abonnements validés |
 | Téléchargement | Octets binaires et texte UTF-8 avec accents et symbole euro préservés |
 | Images Docker | Backend exécuté avec Java 21 ; frontend servi par Nginx non privilégié |
@@ -27,3 +27,5 @@ Les scripts reproductibles sont `scripts/smoke-test.ps1` et `scripts/resilience-
 Il s’agit de tests fonctionnels et de reprise sur un environnement local de développement. Aucun test de charge soutenu, exercice de bascule HA ou certification de sécurité n’a été réalisé. Le scénario `scripts/load.js` fournit un point de départ k6 pour mesurer les lectures REST sur l’infrastructure cible ; il ne mesure pas à lui seul le débit d’ingestion MQ.
 
 Les tests de déduplication concurrente utilisent 24 tentatives pour un même identifiant, dont une seule insertion réussit. Le comportement dans la fenêtre commit SQL / commit MQ repose sur cette contrainte unique et sur la propagation des erreurs du listener. Aucun arrêt forcé précisément injecté entre les deux commits n’a été réalisé.
+
+Un test d'intégration vérifie désormais la visibilité du commit SQL avec une seconde connexion PostgreSQL au moment de l'appel du producteur de quarantaine simulé. Les frontières de simulation, les cas couverts et les commandes sont décrits dans [le plan de tests](tests.md). La suite complète compte 83 cas.

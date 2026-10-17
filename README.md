@@ -69,6 +69,8 @@ Pour tester la quarantaine, ajouter `--app.publisher.invalid=true` : le producte
 
 ## Tester
 
+La suite comprend **56 tests Java**, dont 18 cas d'intégration avec PostgreSQL et HTTP réels, et **27 tests Angular**, dont 3 tests d'intégration de la page. Le [plan de tests](docs/tests.md) précise les scénarios et les frontières de simulation.
+
 Le backend demande Java 21+ ; les tests démarrent leur propre PostgreSQL temporaire et ne modifient pas la base de développement. Sous Linux, les exécuter avec un utilisateur non root.
 
 ```sh

@@ -134,4 +134,39 @@ class MessageMqAdapterTest {
         .containsExactly((byte) 0, (byte) 255, (byte) 42);
     assertThat(new JmsMessageDecoder(props).decode(text()).payloadSize()).isEqualTo(14);
   }
+
+  @Test
+  void aRejectedMessageIsNotSentToQuarantineWhenSqlFails() throws Exception {
+    var message = mock(MapMessage.class);
+    when(message.getJMSMessageID()).thenReturn("ID:sql-failure");
+    when(ingestion.archive(any())).thenThrow(new DataAccessResourceFailureException("offline"));
+    var session = mock(Session.class);
+    assertThatThrownBy(() -> listener.onMessage(message, session))
+        .isInstanceOf(DataAccessResourceFailureException.class);
+    verifyNoInteractions(session);
+    verify(message, never()).acknowledge();
+    assertThat(meters.get("payments.ingestion.failures").counter().count()).isEqualTo(1);
+    assertThat(meters.find("payments.messages").counter()).isNull();
+  }
+
+  @Test
+  void quarantineSendFailureClosesTheProducerAndDoesNotCountSuccess() throws Exception {
+    var message = mock(MapMessage.class);
+    when(message.getJMSMessageID()).thenReturn("ID:send-failure");
+    var session = mock(Session.class);
+    var queue = mock(Queue.class);
+    var producer = mock(MessageProducer.class);
+    when(session.createQueue(props.quarantineQueue())).thenReturn(queue);
+    when(session.createProducer(queue)).thenReturn(producer);
+    doThrow(new JMSException("put failed"))
+        .when(producer)
+        .send(message, DeliveryMode.PERSISTENT, 0, 0);
+    assertThatThrownBy(() -> listener.onMessage(message, session))
+        .isInstanceOf(JMSException.class)
+        .hasMessage("put failed");
+    verify(producer).close();
+    verify(message, never()).acknowledge();
+    assertThat(meters.get("payments.ingestion.failures").counter().count()).isEqualTo(1);
+    assertThat(meters.find("payments.messages").counter()).isNull();
+  }
 }

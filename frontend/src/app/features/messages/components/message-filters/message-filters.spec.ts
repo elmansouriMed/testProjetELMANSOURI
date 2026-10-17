@@ -1,6 +1,7 @@
 // createdBy ELMANSOURI Mohamed
 import { TestBed } from '@angular/core/testing';
 import { MessageFiltersComponent } from './message-filters';
+import { EMPTY_FILTERS } from '../../models/message.model';
 
 describe('MessageFiltersComponent', () => {
   function create() {
@@ -40,5 +41,32 @@ describe('MessageFiltersComponent', () => {
     component.apply();
     expect(applied).not.toHaveBeenCalled();
     expect(component.form.invalid).toBe(true);
+  });
+
+  it('réinitialise les filtres et l’erreur avant d’émettre une recherche vide', () => {
+    const component = create();
+    const applied = vi.fn();
+    component.filtersApplied.subscribe(applied);
+    component.form.patchValue({
+      source: 'BO-SEPA',
+      from: '2026-10-18T12:00',
+      to: '2026-10-17T12:00',
+    });
+    component.apply();
+    expect(component.error()).not.toBeNull();
+    component.reset();
+    expect(component.error()).toBeNull();
+    expect(component.form.valid).toBe(true);
+    expect(applied).toHaveBeenCalledExactlyOnceWith(EMPTY_FILTERS);
+  });
+
+  it('refuse aussi une période vide dont les deux bornes sont égales', () => {
+    const component = create();
+    const applied = vi.fn();
+    component.filtersApplied.subscribe(applied);
+    component.form.patchValue({ from: '2026-10-17T12:00', to: '2026-10-17T12:00' });
+    component.apply();
+    expect(applied).not.toHaveBeenCalled();
+    expect(component.form.hasError('dateRange')).toBe(true);
   });
 });

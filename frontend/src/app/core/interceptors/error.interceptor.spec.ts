@@ -39,4 +39,31 @@ describe('apiErrorInterceptor', () => {
     http.expectOne('/assets/test.json').flush({}, { status: 404, statusText: 'Not Found' });
     expect(error).toBeInstanceOf(HttpErrorResponse);
   });
+
+  it.each([
+    [400, 'paramètres'],
+    [404, 'introuvable'],
+    [500, 'erreur'],
+  ])('traduit le statut %i sans exposer le corps du serveur', (status, expected) => {
+    let error: ApiError | undefined;
+    client.get('/api/messages').subscribe({ error: (value) => (error = value) });
+    http
+      .expectOne('/api/messages')
+      .flush(
+        { detail: 'confidential technical data' },
+        { status: Number(status), statusText: 'Error' },
+      );
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error?.status).toBe(status);
+    expect(error?.message).toContain(String(expected));
+    expect(error?.message).not.toContain('confidential');
+  });
+
+  it('distingue une panne réseau d’une réponse du serveur', () => {
+    let error: ApiError | undefined;
+    client.get('/api/messages').subscribe({ error: (value) => (error = value) });
+    http.expectOne('/api/messages').error(new ProgressEvent('error'));
+    expect(error?.status).toBe(0);
+    expect(error?.message).toContain('connexion');
+  });
 });
