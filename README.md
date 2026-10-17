@@ -44,6 +44,8 @@ sh scripts/init-dev.sh --accept-mq-license
 
 Sans l’option d’acceptation, le script crée les fichiers et laisse `MQ_LICENSE` vide. Renseigner ensuite `MQ_LICENSE=accept` dans `.env`. Les scripts génèrent des mots de passe locaux, exclus de Git. Le secret `.secrets/mq-app-password.txt` et `MQ_PASSWORD` doivent rester identiques. Un changement ultérieur des mots de passe doit également être appliqué aux services existants.
 
+Sous Linux, le répertoire `.secrets` reste privé (`0700`). Le fichier MQ est lisible par le processus du conteneur (`0444`), même si son identifiant utilisateur diffère de celui du poste ; le répertoire privé protège son accès par les autres utilisateurs locaux.
+
 3. Démarrer la pile.
 
 ```sh
