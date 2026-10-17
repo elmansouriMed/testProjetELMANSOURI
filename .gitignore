@@ -1,0 +1,14 @@
+**/target/
+**/node_modules/
+**/dist/
+**/.angular/
+**/coverage/
+.env
+.secrets/
+.idea/
+.vscode/
+*.log
+*.log.*
+*.trc
+*.zip
+.DS_Store
