@@ -22,7 +22,13 @@ class ArchitectureTest {
         .resideInAnyPackage("..messages.domain..", "..messages.application..")
         .should()
         .dependOnClassesThat()
-        .resideInAnyPackage("org.springframework..", "jakarta..", "java.sql..", "com.ibm..")
+        .resideInAnyPackage(
+            "org.springframework..",
+            "jakarta..",
+            "java.sql..",
+            "com.ibm..",
+            "org.mapstruct..",
+            "org.hibernate..")
         .check(CLASSES);
   }
 

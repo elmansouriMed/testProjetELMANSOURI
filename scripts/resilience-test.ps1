@@ -14,7 +14,8 @@ try {
     docker compose stop postgres | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "Impossible d’arrêter PostgreSQL" }
     $stopped = $true
-    docker compose exec -T backend java -jar /app/app.jar --spring.main.web-application-type=none --app.mq.enabled=false --app.publisher.enabled=true --app.publisher.count=12 --spring.flyway.enabled=false --spring.datasource.hikari.minimum-idle=0 --spring.datasource.hikari.initialization-fail-timeout=-1 | Out-Null
+    # Le producteur n'utilise pas la base ; JPA ne doit ni la valider ni consulter ses métadonnées ici.
+    docker compose exec -T backend java -jar /app/app.jar --spring.main.web-application-type=none --app.mq.enabled=false --app.publisher.enabled=true --app.publisher.count=12 --spring.flyway.enabled=false --spring.jpa.hibernate.ddl-auto=none --spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect --spring.jpa.properties.hibernate.boot.allow_jdbc_metadata_access=false --spring.datasource.hikari.minimum-idle=0 --spring.datasource.hikari.initialization-fail-timeout=-1 | Out-Null
     if ($LASTEXITCODE -ne 0) { throw 'Publication MQ impossible pendant la panne SQL' }
     $response = Invoke-WebRequest "$BaseUrl/api/messages" -SkipHttpErrorCheck -TimeoutSec 25
     if ($response.StatusCode -ne 503) { throw "API : attendu 503, reçu $($response.StatusCode)" }

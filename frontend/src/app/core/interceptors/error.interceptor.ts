@@ -27,9 +27,11 @@ export const apiErrorInterceptor: HttpInterceptorFn = (request, next) => {
             ? 'Les paramètres de recherche sont invalides.'
             : error.status === 404
               ? 'Le message demandé est introuvable.'
-              : error.status === 503
-                ? 'Le stockage est temporairement indisponible. Réessayez dans quelques instants.'
-                : 'Une erreur est survenue. Réessayez dans quelques instants.';
+              : error.status === 409
+                ? 'Le message a été modifié. Actualisez les données avant de réessayer.'
+                : error.status === 503
+                  ? 'Le stockage est temporairement indisponible. Réessayez dans quelques instants.'
+                  : 'Une erreur est survenue. Réessayez dans quelques instants.';
       return throwError(() => new ApiError(error.status, message));
     }),
   );

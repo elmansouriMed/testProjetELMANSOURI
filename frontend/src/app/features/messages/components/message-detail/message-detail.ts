@@ -9,7 +9,6 @@ import {
   viewChild,
 } from '@angular/core';
 import { DatePipe } from '@angular/common';
-import { ByteSizePipe } from '@shared/pipes/byte-size.pipe';
 import { Loader } from '@shared/components/loader/loader';
 import { MessageDetail, MessageSummary } from '../../models/message.model';
 import { downloadMessage } from '../../utils/message-download';
@@ -17,7 +16,7 @@ import { MessageStatusComponent } from '../message-status/message-status';
 
 @Component({
   selector: 'app-message-detail',
-  imports: [DatePipe, ByteSizePipe, Loader, MessageStatusComponent],
+  imports: [DatePipe, Loader, MessageStatusComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './message-detail.html',
   styleUrl: './message-detail.css',

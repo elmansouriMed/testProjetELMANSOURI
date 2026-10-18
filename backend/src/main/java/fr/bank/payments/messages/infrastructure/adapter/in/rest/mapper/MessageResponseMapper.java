@@ -1,50 +1,38 @@
 // createdBy ELMANSOURI Mohamed
 package fr.bank.payments.messages.infrastructure.adapter.in.rest.mapper;
 
-import fr.bank.payments.messages.domain.model.BodyType;
-import fr.bank.payments.messages.domain.model.MessageDetail;
-import fr.bank.payments.messages.domain.model.MessagePage;
-import fr.bank.payments.messages.domain.model.MessageSummary;
+import fr.bank.payments.messages.domain.model.*;
 import fr.bank.payments.messages.infrastructure.adapter.in.rest.dto.MessageResponses;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import org.mapstruct.*;
 
-public final class MessageResponseMapper {
-  private MessageResponseMapper() {}
+/** MapStruct génère les DTO ; seuls les encodages du contenu demandent une conversion explicite. */
+@Mapper(
+    componentModel = MappingConstants.ComponentModel.SPRING,
+    unmappedTargetPolicy = ReportingPolicy.ERROR)
+public interface MessageResponseMapper {
+  MessageResponses.Summary summary(MessageSummary message);
 
-  public static MessageResponses.Summary summary(MessageSummary message) {
-    return new MessageResponses.Summary(
-        Long.toString(message.id()),
-        message.mqMessageId(),
-        message.correlationId(),
-        message.sourceApplication(),
-        message.sourceQueue(),
-        message.sentAt(),
-        message.receivedAt(),
-        message.bodyType(),
-        message.payloadSize(),
-        message.redelivered(),
-        message.status(),
-        message.rejectionReason());
-  }
+  MessageResponses.Page page(MessagePage page);
 
-  public static MessageResponses.Page page(MessagePage page) {
-    return new MessageResponses.Page(
-        page.items().stream().map(MessageResponseMapper::summary).toList(),
-        page.nextCursor() == null ? null : page.nextCursor().toString(),
-        page.hasMore());
-  }
+  @Mapping(target = "textPayload", source = "message", qualifiedByName = "textPayload")
+  @Mapping(target = "base64Payload", source = "message", qualifiedByName = "base64Payload")
+  MessageResponses.Detail detail(MessageDetail message);
 
-  public static MessageResponses.Detail detail(MessageDetail message) {
+  @Named("textPayload")
+  default String textPayload(MessageDetail message) {
     byte[] payload = message.payload();
-    BodyType type = message.metadata().bodyType();
-    return new MessageResponses.Detail(
-        summary(message.metadata()),
-        payload != null && type == BodyType.TEXT
-            ? new String(payload, StandardCharsets.UTF_8)
-            : null,
-        payload != null && type == BodyType.BYTES
-            ? Base64.getEncoder().encodeToString(payload)
-            : null);
+    return payload != null && message.metadata().bodyType() == BodyType.TEXT
+        ? new String(payload, StandardCharsets.UTF_8)
+        : null;
+  }
+
+  @Named("base64Payload")
+  default String base64Payload(MessageDetail message) {
+    byte[] payload = message.payload();
+    return payload != null && message.metadata().bodyType() == BodyType.BYTES
+        ? Base64.getEncoder().encodeToString(payload)
+        : null;
   }
 }

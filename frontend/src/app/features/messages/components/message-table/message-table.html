@@ -6,7 +6,7 @@
         <th>Identifiant MQ / Corrélation</th>
         <th>Application</th>
         <th>Réception</th>
-        <th>Format / Taille</th>
+        <th>Format</th>
         <th>Statut</th>
         <th><span class="sr-only">Détail</span></th>
       </tr>
@@ -31,13 +31,10 @@
             }}<small>{{ message.receivedAt | date: 'HH:mm:ss' }}</small>
           </td>
           <td>
-            {{ message.bodyType }}<small>{{ message.payloadSize | byteSize }}</small>
+            {{ message.bodyType }}
           </td>
           <td>
             <app-message-status [status]="message.status" />
-            @if (message.redelivered) {
-              <small>Relivré par MQ</small>
-            }
           </td>
           <td>
             <button

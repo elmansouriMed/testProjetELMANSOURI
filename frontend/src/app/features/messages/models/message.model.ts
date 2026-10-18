@@ -8,11 +8,8 @@ export interface MessageSummary {
   readonly correlationId: string | null;
   readonly sourceApplication: string;
   readonly sourceQueue: string;
-  readonly sentAt: string | null;
   readonly receivedAt: string;
   readonly bodyType: BodyType;
-  readonly payloadSize: number;
-  readonly redelivered: boolean;
   readonly status: MessageStatus;
   readonly rejectionReason: string | null;
 }

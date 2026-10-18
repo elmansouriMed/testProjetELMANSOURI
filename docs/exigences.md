@@ -5,7 +5,7 @@ Auteur : ELMANSOURI Mohamed.
 | Exigence | Réalisation | Vérification |
 |---|---|---|
 | Lire les messages IBM MQ | Listener JMS sur une file configurable | Producteur de test et script `smoke-test.ps1` |
-| Stocker dans une base relationnelle | PostgreSQL, JDBC et migration Flyway | Tests d’intégration avec PostgreSQL |
+| Stocker dans une base relationnelle | PostgreSQL, Spring Data JPA et migrations Flyway | Tests d’intégration avec PostgreSQL |
 | Exposer des API REST | Liste paginée et détail d’un message | Tests HTTP et contrat OpenAPI |
 | Fournir une IHM | Une page Angular : recherche, pagination et détail | Tests Angular et contrôle dans le navigateur |
 | Performance | Nombre de consommateurs borné, pool SQL, index et pagination par curseur | Test de concurrence et scénario de charge HTTP fourni |
@@ -20,7 +20,9 @@ Auteur : ELMANSOURI Mohamed.
 
 ## Organisation et qualité de code
 
-Le backend organise la fonctionnalité `messages` en domaine, cas d'utilisation avec ports et infrastructure. Les adaptateurs JMS, REST et JDBC dépendent de ces contrats. Un décorateur assure la transaction SQL avant l'acquittement MQ. Des tests ArchUnit empêchent les dépendances inverses et les cycles.
+Le backend organise la fonctionnalité `messages` en domaine, cas d'utilisation avec ports et infrastructure. Les adaptateurs JMS, REST et JPA dépendent de ces contrats. Un décorateur assure la transaction SQL avant l'acquittement MQ. MapStruct génère les DTO REST ; l'entité JPA porte un `@Version` testé avec deux transactions concurrentes. Des tests ArchUnit empêchent les dépendances inverses et les cycles. Un conseil REST centralise les exceptions et les réponses `ProblemDetail`.
+
+Le [guide des classes](classes.md) explique chaque responsabilité, les relations entre les couches, les principes SOLID appliqués et les suites de tests correspondantes.
 
 Le frontend suit `core`, `shared` et `features/messages`. La page orchestre des composants de présentation distincts ; le client REST typé et la façade RxJS/signals gèrent les données et leur cycle de vie. Les routes sont chargées à la demande, les composants sont standalone et `OnPush`, et les formulaires réactifs sont typés. Le mode zoneless est activé. Le frontend ne dépend pas d'une bibliothèque externe de gestion d'état ou de composants graphiques.
 

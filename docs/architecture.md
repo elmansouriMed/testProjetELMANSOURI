@@ -8,7 +8,7 @@ Le système reçoit, archive et expose les messages à la consultation. Le conte
 
 1. Le `DefaultMessageListenerContainer` ouvre une transaction JMS locale et reçoit le message.
 2. `JmsMessageDecoder` extrait l’identifiant JMS/MQ, la corrélation, la source et le contenu.
-3. `MessageMqAdapter` appelle le port `IngestMessageUseCase`. Son implémentation est le décorateur Spring `TransactionalMessageIngestion`, sous `@Transactional`, qui délègue à `ArchiveMessageService` puis au port `MessageArchivePort`. L'adaptateur JDBC applique `INSERT ... ON CONFLICT DO NOTHING` ; la contrainte unique arbitre les doublons, y compris entre instances concurrentes.
+3. `MessageMqAdapter` appelle le port `IngestMessageUseCase`. Son implémentation est le décorateur Spring `TransactionalMessageIngestion`, sous `@Transactional`, qui délègue à `ArchiveMessageService` puis au port `MessageArchivePort`. Le repository Spring Data JPA applique une insertion native `INSERT ... ON CONFLICT DO NOTHING` ; la contrainte unique arbitre les doublons, y compris entre instances concurrentes.
 4. Le commit PostgreSQL est terminé avant le retour du service vers le listener.
 5. Si le contenu est refusé, le listener envoie le message d’origine en quarantaine avec **la même session JMS**, en livraison persistante et sans expiration.
 6. Au retour du listener, le conteneur commit la transaction MQ. En cas d’exception, il rollback la réception et l’éventuel envoi en quarantaine.
@@ -22,7 +22,7 @@ Le système reçoit, archive et expose les messages à la consultation. Le conte
 | SQL indisponible | Pas d’acquittement ; nouvelles tentatives espacées d’une seconde par consommateur |
 | MQ indisponible | Reconnexion du client et du conteneur ; archives existantes consultables tant que SQL fonctionne |
 
-Les champs `receivedAt` et `redelivered` décrivent le **premier archivage réussi**, sans modification à chaque tentative. Deux messages avec des contenus identiques et des identifiants MQ différents restent deux messages distincts. Le producteur doit fournir des messages persistants, avec une durée de vie compatible avec les délais de reprise ; l’application ne peut empêcher l’expiration décidée par le producteur ou la perte d’un message non persistant lors d’une panne MQ.
+Le champ `receivedAt` décrit le **premier archivage réussi**, sans modification à chaque tentative. Deux messages avec des contenus identiques et des identifiants MQ différents restent deux messages distincts. Le producteur doit fournir des messages persistants, avec une durée de vie compatible avec les délais de reprise ; l’application ne peut empêcher l’expiration décidée par le producteur ou la perte d’un message non persistant lors d’une panne MQ.
 
 L’archivage en base et la mise en quarantaine sont deux commits de ressources distinctes : une ligne `QUARANTINED` peut être visible avant que l’envoi MQ aboutisse. Le texte de l’IHM tient compte de cette validation différée. Le nouveau message de quarantaine peut recevoir un nouvel identifiant MQ ; la référence SQL conserve l’identifiant reçu sur la file d’entrée.
 
@@ -34,11 +34,15 @@ Les files de développement sont persistantes et limitées à 4 Mio par message.
 
 `BOTHRESH(0)` désactive le déplacement automatique du client JMS vers une backout queue. Ce point est essentiel : une panne SQL prolongée ne doit pas déplacer un message sans référence SQL. Les formats refusés sont gérés explicitement par le listener. Si la quarantaine est pleine ou inaccessible, la réception est annulée et une alerte d’exploitation est nécessaire. Un identifiant MQ absent ou une erreur de lecture de métadonnées provoque aussi une reprise ; cela requiert une intervention si le message est structurellement illisible.
 
-Seuls les en-têtes nécessaires sont stockés : identifiant, corrélation, source, file, dates, type, taille et indicateur de relivraison. `sourceApplication` manque : valeur `UNKNOWN` ; dépasse 128 caractères : tronquée à 128. Les autres propriétés JMS ne sont pas archivées. Le texte est conservé comme contenu sémantique UTF-8, pas comme une capture brute des octets du protocole MQ.
+Les modèles contiennent l'identifiant MQ, la corrélation, la source, la file, le type, le contenu, le statut et le motif éventuel de rejet. La lecture ajoute l'identifiant SQL et la date de réception. `sourceApplication` manque : valeur `UNKNOWN` ; dépasse 128 caractères : tronquée à 128. Le texte est conservé comme contenu sémantique UTF-8, pas comme une capture brute des octets du protocole MQ.
+
+La date d'émission, la taille stockée et l'indicateur de relivraison ont été retirés des modèles et des réponses REST. Le contrôle de taille reste local au décodage. La migration V2 rend les anciennes colonnes techniques optionnelles et conserve les valeurs déjà archivées ; V1 reste inchangée. L'entité JPA ne mappe que les champs utiles.
 
 ## Performance
 
-JDBC est utilisé directement pour maîtriser les requêtes et éviter le chargement de corps binaires dans les listes. Les insertions sont unitaires pour garder simple la reprise. Chaque consommateur attend le commit SQL ; le pool de connexions et les consommateurs bornent la concurrence. Le débit peut être augmenté en ajoutant des consommateurs/instances jusqu’à la capacité de PostgreSQL et MQ, à mesurer.
+Spring Data JPA construit les filtres avec `Specification`. L'API fluide projette les résultats en `MessageSummary` et limite la sélection aux métadonnées. La limite est fixée à la taille de page plus un pour détecter la suite sans requête `COUNT`. Un test inspecte le SQL produit pour vérifier l'absence de contenu binaire et de comptage global. `open-in-view` est désactivé et Hibernate valide le schéma géré par Flyway.
+
+Les insertions unitaires utilisent une requête native dans le repository. `ON CONFLICT DO NOTHING` évite de mettre la transaction en échec lors d'un doublon concurrent, ce qu'un simple `save()` ne garantit pas. Chaque consommateur attend le commit SQL ; le pool et les consommateurs bornent la concurrence. Le débit doit être mesuré sur l'infrastructure cible.
 
 La pagination utilise une clé `id < beforeId`, avec tri décroissant et limite plafonnée. Les filtres sont paramétrés, sans concaténation de saisie utilisateur. Les index portent sur la date, le statut, la source et la corrélation. Les index ne couvrent pas toutes les combinaisons possibles ; utiliser `EXPLAIN (ANALYZE, BUFFERS)` avec la distribution réelle avant d’en ajouter.
 
@@ -63,13 +67,21 @@ flowchart LR
   Consult --> Query[Service consultation]
   Archive --> Port[Port de stockage]
   Query --> Port
-  JDBC[Adaptateur JDBC] -. implémente .-> Port
-  JDBC --> DB[(PostgreSQL)]
+  JPA[Adaptateur Spring Data JPA] -. implémente .-> Port
+  JPA --> DB[(PostgreSQL)]
 ```
 
 `MessageBeanConfiguration` assemble les services et le décorateur. Le bean d'ingestion injecté dans l'adaptateur MQ est le décorateur proxifié par Spring : la transaction SQL est donc terminée avant le retour au listener. Le service métier ne dépend pas de la transaction Spring et n'est pas enregistré une seconde fois comme bean d'ingestion.
 
-Les DTO HTTP restent dans l'adaptateur REST. `MessageResponseMapper` transforme les identifiants 64 bits en chaînes et le contenu en texte UTF-8 ou Base64. Le domaine et le stockage ne connaissent pas ces choix de transport. Les transformations de listes utilisent les streams Java ; le décodage JMS emploie le pattern matching de Java 21.
+Les DTO HTTP restent dans l'adaptateur REST. `MessageResponseMapper` déclare le mapping MapStruct des records ; Maven génère son implémentation Spring à la compilation. `unmappedTargetPolicy = ERROR` empêche d'oublier un nouveau champ cible. Les identifiants 64 bits deviennent des chaînes ; deux conversions nommées encodent le contenu en texte UTF-8 ou Base64. Le domaine et l'application ne dépendent ni de MapStruct ni des DTO. Le décodage JMS emploie le pattern matching de Java 21.
+
+### Verrouillage optimiste
+
+`MessageEntity.version`, annoté `@Version`, est une métadonnée interne. La migration V3 ajoute une colonne `BIGINT NOT NULL DEFAULT 0` et initialise les archives existantes sans modifier leur contenu. Les insertions natives utilisent cette valeur par défaut ; un rejeu ignoré ne modifie pas la version.
+
+Hibernate contrôle et incrémente la version lors de ses écritures d'entités. Le test d'intégration charge une même archive dans deux contextes de persistance, demande `OPTIMISTIC_FORCE_INCREMENT`, valide la première transaction puis vérifie le rejet de la seconde et la version finale à 1. Il teste le mécanisme JPA sans ajouter de setter métier ni d'API d'édition aux archives.
+
+Les deux routes métier restent des lectures. Elles ne déclenchent pas normalement de conflit optimiste ; le conseil REST et l'intercepteur Angular savent néanmoins traiter une exception Spring de ce type en 409. Une future écriture JPA devra conserver cette vérification. Les requêtes SQL natives de mise à jour ne bénéficient pas automatiquement de `@Version` : elles devraient contrôler et incrémenter explicitement la version. L'insertion actuelle reste protégée contre les doublons par la contrainte unique.
 
 | Pattern | Usage et raison |
 |---|---|
@@ -80,11 +92,17 @@ Les DTO HTTP restent dans l'adaptateur REST. `MessageResponseMapper` transforme 
 | Facade | Une façade Angular centralise recherche, pagination et sélection pour la page |
 | Observer via RxJS | Les changements de recherche pilotent les requêtes annulables et leur état |
 
-JDBC reste adapté aux requêtes SQL précises du projet ; introduire JPA n'améliorerait pas le besoin actuel. Il n'y a ni hiérarchie artificielle de services, ni factories pour chaque DTO, ni répertoires vides. Les quatre règles ArchUnit vérifient l'indépendance du cœur, l'absence d'accès direct des adaptateurs entrants au stockage concret et l'absence de cycles entre les couches.
+L'infrastructure de persistance comprend une entité JPA, un repository et l'adaptateur du port de stockage. Les lectures ne nécessitent plus de mapping manuel de `ResultSet` ni de concaténation SQL. Les quatre règles ArchUnit vérifient l'indépendance du cœur, l'absence d'accès direct des adaptateurs entrants au stockage concret et l'absence de cycles entre les couches.
+
+## Exceptions REST
+
+`InvalidMessageSearchException` décrit une recherche invalide et `MessageNotFoundException` une archive absente. Les cas d'utilisation ne dépendent pas des statuts HTTP. `ApiExceptionHandler`, annoté `@RestControllerAdvice` et dérivé de `ResponseEntityExceptionHandler`, traduit ces erreurs et celles de Spring MVC en réponses `application/problem+json` : 400 pour les paramètres, 404 pour une archive absente, 409 pour un conflit optimiste, 503 avec `Retry-After` pour une défaillance de persistance/transaction, et 500 pour une erreur inattendue. Le gestionnaire 409 est plus spécifique que celui des erreurs de stockage. Une erreur interne arbitraire n'est pas transformée en faute de saisie. Les détails SQL et les messages internes ne sont pas renvoyés au client.
+
+Les responsabilités et les tests de chaque type sont détaillés dans [classes.md](classes.md), avec l'application concrète des principes SOLID.
 
 ## Organisation Angular et flux réactifs
 
-`core` regroupe les services transversaux uniques (URL API, intercepteur d'erreur, en-tête). `shared` contient uniquement le loader et le pipe de taille réutilisables. La fonctionnalité `features/messages` regroupe sa route, sa page, ses composants de présentation, son client HTTP, ses modèles et son état. Les alias TypeScript `@core`, `@shared` et `@features` raccourcissent les imports transversaux ; les imports internes à la fonctionnalité restent relatifs.
+`core` regroupe les services transversaux uniques (URL API, intercepteur d'erreur, en-tête). `shared` contient uniquement le loader réutilisable. La fonctionnalité `features/messages` regroupe sa route, sa page, ses composants de présentation, son client HTTP, ses modèles et son état. Les alias TypeScript `@core`, `@shared` et `@features` raccourcissent les imports transversaux ; les imports internes à la fonctionnalité restent relatifs.
 
 La route `/messages` charge la page à la demande. Les composants standalone utilisent `OnPush`, les entrées/sorties `input` et `output`, et les templates `@if`/`@for` avec suivi par identifiant. Le bootstrap active la détection des changements zoneless. Les dates utilisent la locale française.
 
@@ -109,3 +127,8 @@ L’interface et l’API n’intègrent aucune authentification, selon la demand
 - [Angular : interopérabilité RxJS et signals](https://angular.dev/ecosystem/rxjs-interop)
 - [Angular : formulaires typés](https://angular.dev/guide/forms/typed-forms)
 - [IBM MQ : configuration de l’image de développement](https://github.com/ibm-messaging/mq-container/blob/master/docs/developer-config.md)
+
+- [Spring Data JPA : specifications et projections](https://docs.spring.io/spring-data/jpa/reference/jpa/specifications.html)
+- [Spring MVC : ControllerAdvice et ProblemDetail](https://docs.spring.io/spring-framework/reference/web/webmvc/mvc-ann-rest-exceptions.html)
+- [MapStruct : génération de mappers et contrôle des propriétés cibles](https://mapstruct.org/documentation/stable/reference/html/)
+- [Jakarta Persistence : annotation Version](https://jakarta.ee/specifications/platform/11/apidocs/jakarta/persistence/version)

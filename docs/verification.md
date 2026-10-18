@@ -1,13 +1,17 @@
-# Vérifications de livraison — 17 octobre 2026
+# Vérifications de livraison — 18 octobre 2026
 
 ## Résultats observés
 
 | Vérification | Résultat |
 |---|---|
-| Maven `verify` | 56 tests backend réussis, dont 18 cas d'intégration PostgreSQL/HTTP ; aucun échec ni test ignoré |
+| Maven `verify` | 71 tests backend réussis, dont 20 cas d'intégration PostgreSQL/HTTP ; aucun échec ni test ignoré |
+| Persistance JPA | Projection sans payload, sans COUNT global ni OFFSET ; déduplication concurrente et commit SQL avant PUT validés |
+| Exceptions REST | 8 tests du conseil REST : réponses ProblemDetail 400/404/409/503/500 et absence de fuite technique |
+| MapStruct | 5 tests de l'implémentation générée : UTF-8, Base64, quarantaine, pagination et précision des identifiants |
+| Verrouillage optimiste | Deux transactions JPA sur la même archive ; seconde validation refusée, version finale à 1 et rejeu sans incrément |
 | Architecture Java | 4 règles ArchUnit : indépendance du cœur, dépendances vers le cœur, isolation des adaptateurs et absence de cycles |
 | PostgreSQL éphémère des tests | Migrations, transactions, concurrence de déduplication, filtres et API HTTP validés |
-| Angular 22 / Node 24.15 | 27 tests réussis, dont 3 tests d'intégration de la page ; build de production et contrôle Prettier réussis |
+| Angular 22 / Node 24.15 | 28 tests réussis, dont 3 tests d'intégration de la page ; build de production et contrôle Prettier réussis |
 | Flux Angular | Annulation des requêtes obsolètes, reprise après erreur, curseurs et libération des abonnements validés |
 | Téléchargement | Octets binaires et texte UTF-8 avec accents et symbole euro préservés |
 | Images Docker | Backend exécuté avec Java 21 ; frontend servi par Nginx non privilégié |
@@ -28,4 +32,4 @@ Il s’agit de tests fonctionnels et de reprise sur un environnement local de d�
 
 Les tests de déduplication concurrente utilisent 24 tentatives pour un même identifiant, dont une seule insertion réussit. Le comportement dans la fenêtre commit SQL / commit MQ repose sur cette contrainte unique et sur la propagation des erreurs du listener. Aucun arrêt forcé précisément injecté entre les deux commits n’a été réalisé.
 
-Un test d'intégration vérifie désormais la visibilité du commit SQL avec une seconde connexion PostgreSQL au moment de l'appel du producteur de quarantaine simulé. Les frontières de simulation, les cas couverts et les commandes sont décrits dans [le plan de tests](tests.md). La suite complète compte 83 cas.
+Un test d'intégration vérifie la visibilité du commit SQL avec une seconde connexion PostgreSQL au moment de l'appel du producteur de quarantaine simulé. Les frontières de simulation, les cas couverts et les commandes sont décrits dans [le plan de tests](tests.md). La suite complète compte 99 cas.

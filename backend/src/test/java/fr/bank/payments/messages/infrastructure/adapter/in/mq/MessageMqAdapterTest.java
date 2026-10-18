@@ -132,7 +132,7 @@ class MessageMqAdapterTest {
             });
     assertThat(new JmsMessageDecoder(props).decode(message).payload())
         .containsExactly((byte) 0, (byte) 255, (byte) 42);
-    assertThat(new JmsMessageDecoder(props).decode(text()).payloadSize()).isEqualTo(14);
+    assertThat(new JmsMessageDecoder(props).decode(text()).payload()).hasSize(14);
   }
 
   @Test

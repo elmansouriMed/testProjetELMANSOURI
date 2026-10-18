@@ -16,6 +16,10 @@ spring:
         options: -c statement_timeout=10000
   flyway:
     enabled: true
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
 server:
   port: 8080
   shutdown: graceful

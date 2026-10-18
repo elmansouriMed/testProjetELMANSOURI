@@ -8,7 +8,6 @@ import fr.bank.payments.messages.domain.model.MessageStatus;
 import fr.bank.payments.messages.infrastructure.config.MqProperties;
 import jakarta.jms.*;
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.*;
@@ -32,7 +31,6 @@ class JmsMessageDecoderTest {
     var result = decoder.decode(text(body));
     assertThat(result.status()).isEqualTo(MessageStatus.STORED);
     assertThat(result.payload()).isEmpty();
-    assertThat(result.payloadSize()).isZero();
   }
 
   @Test
@@ -40,10 +38,9 @@ class JmsMessageDecoderTest {
     var accepted = decoder.decode(text("éééé"));
     var rejected = decoder.decode(text("ééééa"));
     assertThat(accepted.payload()).isEqualTo("éééé".getBytes(StandardCharsets.UTF_8));
-    assertThat(accepted.payloadSize()).isEqualTo(8);
+    assertThat(accepted.payload()).hasSize(8);
     assertThat(accepted.status()).isEqualTo(MessageStatus.STORED);
     assertThat(rejected.status()).isEqualTo(MessageStatus.QUARANTINED);
-    assertThat(rejected.payloadSize()).isEqualTo(9);
     assertThat(rejected.payload()).isNull();
     assertThat(rejected.rejectionReason()).isNotBlank();
   }
@@ -62,14 +59,10 @@ class JmsMessageDecoderTest {
     var message = text("ok");
     when(message.getStringProperty("sourceApplication")).thenReturn("a".repeat(129));
     when(message.getJMSCorrelationID()).thenReturn("référence+€&42");
-    when(message.getJMSTimestamp()).thenReturn(1234L);
-    when(message.getJMSRedelivered()).thenReturn(true);
     var result = decoder.decode(message);
     assertThat(result.sourceApplication()).isEqualTo("a".repeat(128));
     assertThat(result.sourceQueue()).isEqualTo("IN");
     assertThat(result.correlationId()).isEqualTo("référence+€&42");
-    assertThat(result.sentAt()).isEqualTo(Instant.ofEpochMilli(1234));
-    assertThat(result.redelivered()).isTrue();
   }
 
   @Test

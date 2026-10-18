@@ -60,6 +60,7 @@ paths:
                     pattern: '^[0-9]+$'
                   hasMore: {type: boolean}
         '400': {$ref: '#/components/responses/BadRequest'}
+        '500': {$ref: '#/components/responses/InternalError'}
         '503': {$ref: '#/components/responses/Unavailable'}
   /api/messages/{id}:
     get:
@@ -85,11 +86,23 @@ paths:
         '400': {$ref: '#/components/responses/BadRequest'}
         '404':
           description: Aucun message pour cet identifiant.
+          content:
+            application/problem+json:
+              schema: {$ref: '#/components/schemas/Problem'}
+        '500': {$ref: '#/components/responses/InternalError'}
         '503': {$ref: '#/components/responses/Unavailable'}
 components:
   responses:
     BadRequest:
       description: Filtre, date, identifiant ou taille de page invalide.
+      content:
+        application/problem+json:
+          schema: {$ref: '#/components/schemas/Problem'}
+    InternalError:
+      description: Erreur interne sans détail technique exposé.
+      content:
+        application/problem+json:
+          schema: {$ref: '#/components/schemas/Problem'}
     Unavailable:
       description: Stockage temporairement indisponible.
       headers:
@@ -97,16 +110,20 @@ components:
           schema: {type: string, example: '5'}
       content:
         application/problem+json:
-          schema:
-            type: object
-            properties:
-              title: {type: string}
-              detail: {type: string}
-              status: {type: integer, example: 503}
+          schema: {$ref: '#/components/schemas/Problem'}
   schemas:
+    Problem:
+      type: object
+      required: [title, status, detail]
+      properties:
+        type: {type: string, format: uri, description: 'about:blank implicite si absent.'}
+        title: {type: string}
+        status: {type: integer}
+        detail: {type: string}
+        instance: {type: string, format: uri-reference}
     MessageSummary:
       type: object
-      required: [id, mqMessageId, correlationId, sourceApplication, sourceQueue, sentAt, receivedAt, bodyType, payloadSize, redelivered, status, rejectionReason]
+      required: [id, mqMessageId, correlationId, sourceApplication, sourceQueue, receivedAt, bodyType, status, rejectionReason]
       properties:
         id:
           type: string
@@ -116,16 +133,7 @@ components:
         correlationId: {type: [string, 'null']}
         sourceApplication: {type: string, maxLength: 128}
         sourceQueue: {type: string}
-        sentAt: {type: [string, 'null'], format: date-time}
         receivedAt: {type: string, format: date-time}
         bodyType: {type: string, enum: [TEXT, BYTES, UNSUPPORTED]}
-        payloadSize:
-          type: integer
-          format: int64
-          minimum: 0
-          description: Taille UTF-8 du texte ou taille binaire. Zéro si type non pris en charge.
-        redelivered:
-          type: boolean
-          description: Indicateur MQ observé lors du premier archivage réussi.
         status: {type: string, enum: [STORED, QUARANTINED]}
         rejectionReason: {type: [string, 'null']}

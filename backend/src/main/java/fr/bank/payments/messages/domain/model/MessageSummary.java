@@ -9,10 +9,7 @@ public record MessageSummary(
     String correlationId,
     String sourceApplication,
     String sourceQueue,
-    Instant sentAt,
     Instant receivedAt,
     BodyType bodyType,
-    long payloadSize,
-    boolean redelivered,
     MessageStatus status,
     String rejectionReason) {}

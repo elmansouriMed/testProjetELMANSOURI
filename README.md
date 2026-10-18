@@ -69,7 +69,7 @@ Pour tester la quarantaine, ajouter `--app.publisher.invalid=true` : le producte
 
 ## Tester
 
-La suite comprend **56 tests Java**, dont 18 cas d'intégration avec PostgreSQL et HTTP réels, et **27 tests Angular**, dont 3 tests d'intégration de la page. Le [plan de tests](docs/tests.md) précise les scénarios et les frontières de simulation.
+La suite comprend **71 tests Java**, dont 20 cas d'intégration avec PostgreSQL et HTTP réels, et **28 tests Angular**, dont 3 tests d'intégration de la page. Le [plan de tests](docs/tests.md) précise les scénarios et les frontières de simulation.
 
 Le backend demande Java 21+ ; les tests démarrent leur propre PostgreSQL temporaire et ne modifient pas la base de développement. Sous Linux, les exécuter avec un utilisateur non root.
 
@@ -137,13 +137,13 @@ backend/src/main/java/fr/bank/payments/
     infrastructure/
       adapter/in/mq/           Réception et décodage JMS
       adapter/in/rest/         Contrôleur, DTO et mapping HTTP
-      adapter/out/persistence/ Stockage JDBC PostgreSQL
+      adapter/out/persistence/ Entité, repository Spring Data JPA et adaptateur
       transaction/            Décorateur transactionnel Spring
       config/                 Assemblage des dépendances et configuration MQ
   shared/exception/            Gestion des erreurs HTTP
 frontend/src/app/
   core/                       Configuration, intercepteur HTTP et en-tête
-  shared/                     Loader et pipe de taille réutilisables
+  shared/                     Loader réutilisable
   features/messages/
     pages/                    Page de consultation
     components/               Filtres, tableau, statut et détail
@@ -156,10 +156,16 @@ scripts/    Initialisation et tests de bout en bout
 docs/       Architecture, contrat API et correspondance avec les exigences
 ```
 
-Le backend suit une architecture hexagonale : les cas d'utilisation dépendent de ports, les adaptateurs utilisent Spring, JDBC ou JMS. Des tests ArchUnit protègent cette séparation. Les API gardent le même contrat.
+Le backend suit une architecture hexagonale : les cas d'utilisation dépendent de ports, les adaptateurs utilisent Spring Data JPA ou JMS. Des tests ArchUnit protègent cette séparation. Les routes et filtres REST sont conservés ; les réponses sont limitées aux métadonnées utiles à la consultation.
+
+Le repository JPA utilise des specifications pour les filtres et une projection sans contenu pour les listes. Une seule requête d'insertion native conserve la déduplication atomique PostgreSQL. MapStruct 1.6.3 génère le mapping des DTO REST pendant la compilation et refuse les propriétés cibles non mappées. `@RestControllerAdvice` centralise les erreurs au format `ProblemDetail`.
+
+L'entité possède une version optimiste `@Version`, ajoutée par la migration V3 et réservée à la persistance. Un test avec deux transactions vérifie le rejet d'une version périmée. L'API reste en lecture seule : aucun endpoint de modification n'est ajouté. La déduplication des livraisons MQ continue de dépendre de la clé unique, indépendamment du verrouillage optimiste.
+
+Les champs `sentAt`, `redelivered` et `payloadSize` ne sont plus exposés ni collectés. La migration V2 conserve leurs anciennes valeurs en base pour les installations existantes ; aucune archive n'est supprimée. La limite de taille reste contrôlée dans le décodeur MQ.
 
 Angular utilise des composants standalone `OnPush`, le mode zoneless, des routes chargées à la demande, des formulaires réactifs typés et les API `input`/`output`. La façade locale combine `switchMap` pour annuler les requêtes obsolètes et `toSignal` pour exposer leur état aux templates avec nettoyage automatique à la destruction de la page. Aucun gestionnaire d'état externe n'est nécessaire.
 
 Pour travailler hors des conteneurs applicatifs : démarrer `docker compose up -d postgres mq`, charger les variables de `.env` dans le terminal puis lancer `./mvnw -pl backend spring-boot:run`. Dans un second terminal, exécuter `npm start` depuis `frontend/`. Le serveur Angular relaie `/api` vers le backend local.
 
-Voir [l’architecture](docs/architecture.md), [les exigences client](docs/exigences.md) et [les vérifications](docs/verification.md) pour les détails.
+Le [guide des classes](docs/classes.md) explique chaque classe, port, DTO et composant ainsi que les tests associés. Voir aussi [l’architecture](docs/architecture.md), [les exigences client](docs/exigences.md) et [les vérifications](docs/verification.md).

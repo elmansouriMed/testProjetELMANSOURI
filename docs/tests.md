@@ -2,9 +2,9 @@
 
 Auteur : ELMANSOURI Mohamed.
 
-La suite comprend 83 cas : 56 côté Java et 27 côté Angular. Les tests paramétrés comptent chaque jeu de données. Les vérifications visent les risques fonctionnels ; aucun pourcentage de couverture ou objectif de débit n'est déduit du nombre de tests.
+La suite comprend 99 cas : 71 côté Java et 28 côté Angular. Les tests paramétrés comptent chaque jeu de données. Les vérifications visent les risques fonctionnels ; aucun pourcentage de couverture ou objectif de débit n'est déduit du nombre de tests.
 
-## Backend : 56 cas
+## Backend : 71 cas
 
 | Classe | Cas | Responsabilités vérifiées |
 |---|---:|---|
@@ -12,15 +12,19 @@ La suite comprend 83 cas : 56 côté Java et 27 côté Angular. Les tests param�
 | `JmsMessageDecoderTest` | 15 | Texte vide, taille en octets UTF-8, limite exacte, source absente ou trop longue, métadonnées et corrélation binaire, identifiant obligatoire, lectures binaires fragmentées ou incomplètes, erreur JMS |
 | `MessageMqAdapterTest` | 9 | Archivage avant retour, absence d'acquittement manuel, doublons, erreur SQL, quarantaine sur la session reçue, échec du PUT, fermeture du producteur et métriques d'échec |
 | `ArchitectureTest` | 4 | Indépendance du cœur, sens des dépendances, isolation des adaptateurs et absence de cycles |
-| `MessageApiIntegrationTest` | 18 | Spring Boot, migration Flyway, JDBC, transaction SQL et HTTP réels avec PostgreSQL temporaire |
+| `MessageApiIntegrationTest` | 20 | Spring Boot, migrations Flyway, JPA, transaction SQL et HTTP réels avec PostgreSQL temporaire ; projection SQL et conflit optimiste entre deux transactions |
+| `ApiExceptionHandlerTest` | 8 | Conseil REST, validation, conversion, message absent, conflit 409 distinct d'une indisponibilité 503 avec Retry-After, et erreur interne 500 sans fuite technique |
+| `MessageResponseMapperTest` | 5 | Implémentation MapStruct générée : identifiants et curseurs 64 bits, UTF-8, Base64, quarantaine sans contenu et page vide |
 
-Les 18 cas d'intégration couvrent notamment :
+Les 20 cas d'intégration couvrent notamment :
 
 - 24 insertions concurrentes d'un même message : une seule ligne créée ;
 - même contenu avec deux identifiants MQ, et même identifiant sur deux files : messages distincts ;
 - rejeu : contenu et métadonnées du premier archivage conservés ;
 - rollback SQL puis reprise sans doublon ;
 - pagination pendant de nouvelles insertions, dernière page complète et page vide ;
+- projection JPA sans sélection du contenu binaire, sans comptage global et sans OFFSET ;
+- deux transactions JPA sur une même version : premier commit accepté, second rejeté par `OptimisticLockException`, version inchangée lors d'un rejeu MQ ;
 - filtres combinés, caractères spéciaux, requêtes paramétrées et limites de longueur à un caractère au-delà du maximum ;
 - période de réception avec début inclus et fin exclue ;
 - réponses 400/404, contenu UTF-8, binaire Base64 et identifiants supérieurs à la précision entière JavaScript ;
@@ -37,11 +41,11 @@ Le dernier scénario utilise le véritable décodeur JMS, le port d'ingestion, s
 
 Sous Windows : `./mvnw.cmd verify`. Java 21+ est nécessaire ; sous Linux, PostgreSQL demande un utilisateur non root. Les rapports se trouvent dans `backend/target/surefire-reports/`.
 
-## Frontend : 27 cas
+## Frontend : 28 cas
 
 | Suite | Cas | Responsabilités vérifiées |
 |---|---:|---|
-| Intercepteur HTTP | 6 | Erreurs réseau, 400, 404, 500 et 503 ; détails techniques masqués ; ressources hors API préservées |
+| Intercepteur HTTP | 7 | Erreurs réseau, 400, 404, 409, 500 et 503 ; détails techniques masqués ; ressources hors API préservées |
 | Client REST | 2 | Filtres et caractères spéciaux, curseur 64 bits, propagation des erreurs |
 | Façade `MessagesStore` | 8 | Annulation des recherches/détails obsolètes, destruction, reprise après erreur, conservation des filtres, remise à zéro des curseurs et doubles clics de pagination |
 | Formulaire | 5 | Ordre des dates, dates égales, conversion ISO, longueurs et réinitialisation après erreur |

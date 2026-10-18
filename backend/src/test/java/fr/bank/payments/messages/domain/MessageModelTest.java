@@ -15,17 +15,7 @@ class MessageModelTest {
     byte[] payload = {1, 2};
     var message =
         new ReceivedMessage(
-            "ID:1",
-            null,
-            "BO-SEPA",
-            "IN",
-            null,
-            BodyType.BYTES,
-            payload,
-            2,
-            false,
-            MessageStatus.STORED,
-            null);
+            "ID:1", null, "BO-SEPA", "IN", BodyType.BYTES, payload, MessageStatus.STORED, null);
     payload[0] = 9;
     message.payload()[1] = 9;
     assertThat(message.payload()).containsExactly((byte) 1, (byte) 2);
@@ -47,17 +37,7 @@ class MessageModelTest {
     assertThatThrownBy(
             () ->
                 new ReceivedMessage(
-                    "ID:1",
-                    null,
-                    "BO",
-                    "IN",
-                    null,
-                    BodyType.TEXT,
-                    null,
-                    0,
-                    false,
-                    MessageStatus.STORED,
-                    null))
+                    "ID:1", null, "BO", "IN", BodyType.TEXT, null, MessageStatus.STORED, null))
         .isInstanceOf(IllegalArgumentException.class);
   }
 
@@ -72,11 +52,8 @@ class MessageModelTest {
                     null,
                     "BO",
                     "IN",
-                    null,
                     BodyType.UNSUPPORTED,
                     null,
-                    0,
-                    false,
                     MessageStatus.QUARANTINED,
                     reason))
         .isInstanceOf(IllegalArgumentException.class);
@@ -115,17 +92,6 @@ class MessageModelTest {
 
   private MessageSummary summary() {
     return new MessageSummary(
-        1,
-        "ID:1",
-        null,
-        "BO",
-        "IN",
-        null,
-        Instant.EPOCH,
-        BodyType.BYTES,
-        2,
-        false,
-        MessageStatus.STORED,
-        null);
+        1, "ID:1", null, "BO", "IN", Instant.EPOCH, BodyType.BYTES, MessageStatus.STORED, null);
   }
 }

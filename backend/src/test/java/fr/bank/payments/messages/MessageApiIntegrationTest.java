@@ -9,9 +9,14 @@ import fr.bank.payments.messages.application.port.in.IngestMessageUseCase;
 import fr.bank.payments.messages.application.port.out.MessageArchivePort;
 import fr.bank.payments.messages.domain.model.*;
 import fr.bank.payments.messages.infrastructure.adapter.in.mq.MessageMqAdapter;
+import fr.bank.payments.messages.infrastructure.adapter.out.persistence.MessageEntity;
 import fr.bank.payments.messages.infrastructure.config.MqProperties;
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
 import jakarta.jms.*;
+import jakarta.persistence.EntityManagerFactory;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.OptimisticLockException;
+import jakarta.persistence.RollbackException;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.*;
@@ -50,6 +55,19 @@ class MessageApiIntegrationTest {
     r.add("spring.datasource.url", () -> PG.getJdbcUrl("postgres", "postgres"));
     r.add("spring.datasource.username", () -> "postgres");
     r.add("spring.datasource.password", () -> "");
+    r.add(
+        "spring.jpa.properties.hibernate.session_factory.statement_inspector",
+        () -> SqlCapture.class.getName());
+  }
+
+  public static class SqlCapture implements org.hibernate.resource.jdbc.spi.StatementInspector {
+    static final java.util.List<String> STATEMENTS = new CopyOnWriteArrayList<>();
+
+    @Override
+    public String inspect(String sql) {
+      STATEMENTS.add(sql);
+      return sql;
+    }
   }
 
   @Autowired IngestMessageUseCase ingestion;
@@ -58,12 +76,59 @@ class MessageApiIntegrationTest {
   @Autowired PlatformTransactionManager txManager;
   @Autowired MessageMqAdapter mqAdapter;
   @Autowired MqProperties mqProperties;
+  @Autowired EntityManagerFactory entityManagers;
   @LocalServerPort int port;
   final HttpClient client = HttpClient.newHttpClient();
 
   @BeforeEach
   void clear() {
     jdbc.execute("TRUNCATE payment_message RESTART IDENTITY");
+    SqlCapture.STATEMENTS.clear();
+  }
+
+  @Test
+  void jpaListProjectionDoesNotReadPayloadOrCountTheWholeArchive() {
+    ingestion.archive(message("ID:projection", "BO-SEPA", "c"));
+    SqlCapture.STATEMENTS.clear();
+    assertThat(repository.search(filters(null, null, 25)).items()).hasSize(1);
+    assertThat(SqlCapture.STATEMENTS).hasSize(1);
+    assertThat(SqlCapture.STATEMENTS.getFirst().toLowerCase(java.util.Locale.ROOT))
+        .contains("select", "received_at")
+        .doesNotContain("payload", "count(", "offset");
+  }
+
+  @Test
+  void anOptimisticVersionConflictRejectsTheStaleTransaction() {
+    ingestion.archive(message("ID:version", "BO-SEPA", "c"));
+    long id = repository.search(filters(null, null, 1)).items().getFirst().id();
+    assertThat(
+            jdbc.queryForObject("SELECT version FROM payment_message WHERE id=?", Long.class, id))
+        .isZero();
+    try (var first = entityManagers.createEntityManager();
+        var second = entityManagers.createEntityManager()) {
+      first.getTransaction().begin();
+      second.getTransaction().begin();
+      try {
+        var firstCopy = first.find(MessageEntity.class, id);
+        var staleCopy = second.find(MessageEntity.class, id);
+        first.lock(firstCopy, LockModeType.OPTIMISTIC_FORCE_INCREMENT);
+        second.lock(staleCopy, LockModeType.OPTIMISTIC_FORCE_INCREMENT);
+        first.getTransaction().commit();
+        assertThatThrownBy(second.getTransaction()::commit)
+            .isInstanceOf(RollbackException.class)
+            .hasCauseInstanceOf(OptimisticLockException.class);
+      } finally {
+        if (first.getTransaction().isActive()) first.getTransaction().rollback();
+        if (second.getTransaction().isActive()) second.getTransaction().rollback();
+      }
+    }
+    assertThat(
+            jdbc.queryForObject("SELECT version FROM payment_message WHERE id=?", Long.class, id))
+        .isEqualTo(1);
+    assertThat(ingestion.archive(message("ID:version", "BO-SEPA", "c"))).isFalse();
+    assertThat(
+            jdbc.queryForObject("SELECT version FROM payment_message WHERE id=?", Long.class, id))
+        .isEqualTo(1);
   }
 
   ReceivedMessage message(String id, String source, String correlation) {
@@ -73,11 +138,8 @@ class MessageApiIntegrationTest {
         correlation,
         source,
         "DEV.PAYMENTS.IN",
-        Instant.now(),
         BodyType.TEXT,
         body,
-        body.length,
-        false,
         MessageStatus.STORED,
         null);
   }
@@ -186,11 +248,8 @@ class MessageApiIntegrationTest {
             null,
             "BO-SEPA",
             "DEV.PAYMENTS.IN",
-            null,
             BodyType.BYTES,
             new byte[] {0, (byte) 255},
-            2,
-            false,
             MessageStatus.STORED,
             null));
     var recent =
@@ -211,11 +270,8 @@ class MessageApiIntegrationTest {
             first.correlationId(),
             first.sourceApplication(),
             "ANOTHER.IN",
-            first.sentAt(),
             first.bodyType(),
             first.payload(),
-            first.payloadSize(),
-            false,
             first.status(),
             null);
     assertThat(ingestion.archive(first)).isTrue();
@@ -236,11 +292,8 @@ class MessageApiIntegrationTest {
             "changed",
             "BO-SWIFT",
             first.sourceQueue(),
-            Instant.EPOCH,
             BodyType.TEXT,
             new byte[] {42},
-            1,
-            true,
             MessageStatus.STORED,
             null);
     assertThat(ingestion.archive(replay)).isFalse();
@@ -294,11 +347,8 @@ class MessageApiIntegrationTest {
             null,
             "BO-SEPA",
             "IN",
-            null,
             BodyType.BYTES,
             payload,
-            payload.length,
-            false,
             MessageStatus.STORED,
             null));
     ingestion.archive(message("ID:next", "BO-SEPA", "c"));

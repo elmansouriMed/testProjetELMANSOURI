@@ -10,7 +10,6 @@ import jakarta.jms.JMSException;
 import jakarta.jms.Message;
 import jakarta.jms.TextMessage;
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 import java.util.HexFormat;
 import org.springframework.stereotype.Component;
 
@@ -29,7 +28,7 @@ public class JmsMessageDecoder {
         switch (message) {
           case TextMessage text -> textBody(text);
           case BytesMessage bytes -> binaryBody(bytes);
-          default -> new DecodedBody(BodyType.UNSUPPORTED, null, 0, "Type JMS non pris en charge");
+          default -> new DecodedBody(BodyType.UNSUPPORTED, null, "Type JMS non pris en charge");
         };
     String source = message.getStringProperty("sourceApplication");
     source =
@@ -41,11 +40,8 @@ public class JmsMessageDecoder {
         correlation(message),
         source,
         properties.inputQueue(),
-        message.getJMSTimestamp() > 0 ? Instant.ofEpochMilli(message.getJMSTimestamp()) : null,
         body.type(),
         body.payload(),
-        body.size(),
-        message.getJMSRedelivered(),
         body.reason() == null ? MessageStatus.STORED : MessageStatus.QUARANTINED,
         body.reason());
   }
@@ -54,14 +50,14 @@ public class JmsMessageDecoder {
     String text = message.getText();
     byte[] payload = (text == null ? "" : text).getBytes(StandardCharsets.UTF_8);
     return payload.length > properties.maxPayloadBytes()
-        ? new DecodedBody(BodyType.TEXT, null, payload.length, "Taille maximale dépassée")
-        : new DecodedBody(BodyType.TEXT, payload, payload.length, null);
+        ? new DecodedBody(BodyType.TEXT, null, "Taille maximale dépassée")
+        : new DecodedBody(BodyType.TEXT, payload, null);
   }
 
   private DecodedBody binaryBody(BytesMessage message) throws JMSException {
     long size = message.getBodyLength();
     if (size > properties.maxPayloadBytes())
-      return new DecodedBody(BodyType.BYTES, null, size, "Taille maximale dépassée");
+      return new DecodedBody(BodyType.BYTES, null, "Taille maximale dépassée");
     byte[] payload = new byte[(int) size];
     message.reset();
     for (int offset = 0; offset < payload.length; ) {
@@ -72,7 +68,7 @@ public class JmsMessageDecoder {
       offset += count;
     }
     message.reset();
-    return new DecodedBody(BodyType.BYTES, payload, size, null);
+    return new DecodedBody(BodyType.BYTES, payload, null);
   }
 
   private static String correlation(Message message) throws JMSException {
@@ -84,5 +80,5 @@ public class JmsMessageDecoder {
     }
   }
 
-  private record DecodedBody(BodyType type, byte[] payload, long size, String reason) {}
+  private record DecodedBody(BodyType type, byte[] payload, String reason) {}
 }

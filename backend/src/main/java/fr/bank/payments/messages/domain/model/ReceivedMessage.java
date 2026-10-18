@@ -1,7 +1,6 @@
 // createdBy ELMANSOURI Mohamed
 package fr.bank.payments.messages.domain.model;
 
-import java.time.Instant;
 import java.util.Objects;
 
 public record ReceivedMessage(
@@ -9,11 +8,8 @@ public record ReceivedMessage(
     String correlationId,
     String sourceApplication,
     String sourceQueue,
-    Instant sentAt,
     BodyType bodyType,
     byte[] payload,
-    long payloadSize,
-    boolean redelivered,
     MessageStatus status,
     String rejectionReason) {
   public ReceivedMessage {
@@ -23,7 +19,6 @@ public record ReceivedMessage(
     Objects.requireNonNull(sourceQueue);
     Objects.requireNonNull(bodyType);
     Objects.requireNonNull(status);
-    if (payloadSize < 0) throw new IllegalArgumentException("Taille négative");
     if (status == MessageStatus.STORED && payload == null)
       throw new IllegalArgumentException("Contenu obligatoire pour un message archivé");
     if (status == MessageStatus.QUARANTINED

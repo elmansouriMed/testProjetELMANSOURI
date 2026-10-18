@@ -43,6 +43,7 @@ describe('apiErrorInterceptor', () => {
   it.each([
     [400, 'paramètres'],
     [404, 'introuvable'],
+    [409, 'modifié'],
     [500, 'erreur'],
   ])('traduit le statut %i sans exposer le corps du serveur', (status, expected) => {
     let error: ApiError | undefined;

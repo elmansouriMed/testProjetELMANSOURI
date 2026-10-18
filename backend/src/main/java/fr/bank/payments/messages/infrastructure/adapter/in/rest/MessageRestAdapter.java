@@ -12,21 +12,21 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/messages")
 public class MessageRestAdapter {
   private final ConsultMessagesUseCase messages;
+  private final MessageResponseMapper mapper;
 
-  public MessageRestAdapter(ConsultMessagesUseCase messages) {
+  public MessageRestAdapter(ConsultMessagesUseCase messages, MessageResponseMapper mapper) {
     this.messages = messages;
+    this.mapper = mapper;
   }
 
   @GetMapping
@@ -41,7 +41,7 @@ public class MessageRestAdapter {
           Instant to,
       @RequestParam(required = false) @Positive Long beforeId,
       @RequestParam(defaultValue = "25") @Min(1) @Max(100) int limit) {
-    return MessageResponseMapper.page(
+    return mapper.page(
         messages.search(
             new MessageSearch(
                 status, source, correlationId, mqMessageId, from, to, beforeId, limit)));
@@ -49,10 +49,6 @@ public class MessageRestAdapter {
 
   @GetMapping("/{id}")
   public MessageResponses.Detail detail(@PathVariable @Positive long id) {
-    return messages
-        .findById(id)
-        .map(MessageResponseMapper::detail)
-        .orElseThrow(
-            () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Message introuvable"));
+    return mapper.detail(messages.findById(id));
   }
 }

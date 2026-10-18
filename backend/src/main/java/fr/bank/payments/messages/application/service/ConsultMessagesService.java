@@ -3,10 +3,10 @@ package fr.bank.payments.messages.application.service;
 
 import fr.bank.payments.messages.application.port.in.ConsultMessagesUseCase;
 import fr.bank.payments.messages.application.port.out.MessageArchivePort;
+import fr.bank.payments.messages.domain.exception.MessageNotFoundException;
 import fr.bank.payments.messages.domain.model.MessageDetail;
 import fr.bank.payments.messages.domain.model.MessagePage;
 import fr.bank.payments.messages.domain.model.MessageSearch;
-import java.util.Optional;
 
 public final class ConsultMessagesService implements ConsultMessagesUseCase {
   private final MessageArchivePort archive;
@@ -21,7 +21,7 @@ public final class ConsultMessagesService implements ConsultMessagesUseCase {
   }
 
   @Override
-  public Optional<MessageDetail> findById(long id) {
-    return archive.findById(id);
+  public MessageDetail findById(long id) {
+    return archive.findById(id).orElseThrow(() -> new MessageNotFoundException(id));
   }
 }
