@@ -20,7 +20,7 @@ Les chemins ci-dessous sont relatifs à `backend/src/main/java/fr/bank/payments/
 | `exception/InvalidMessageSearchException` | Signale une recherche invalide sans connaître HTTP. | `MessageModelTest`, `ApiExceptionHandlerTest` |
 | `exception/MessageNotFoundException` | Signale qu'un identifiant demandé ne correspond à aucune archive. | `MessageApiIntegrationTest`, `ApiExceptionHandlerTest` |
 
-Le contenu reste nécessaire à l'archivage. La corrélation permet de retrouver un paiement ; la file d'origine fait partie de la clé de déduplication. Le type sert au décodage et au téléchargement. Le statut et le motif expliquent les rejets. La date d'émission, la taille persistée et le drapeau de relivraison ont été retirés. La version JPA reste interne et n'ajoute aucun champ aux DTO.
+Le contenu reste nécessaire à l'archivage. La corrélation permet de retrouver un paiement ; la file d'origine fait partie de la clé de déduplication. Le type sert au décodage et à la consultation du contenu. Le statut et le motif expliquent les rejets. La date d'émission, la taille persistée et le drapeau de relivraison ont été retirés. La version JPA reste interne et n'ajoute aucun champ aux DTO.
 
 ## Backend : application
 
@@ -39,7 +39,7 @@ L'application dépend uniquement du domaine et de ses ports. Les tests Mockito i
 | Type dans `infrastructure/` | Rôle et choix de conception | Tests associés |
 |---|---|---|
 | `adapter/in/mq/JmsMessageDecoder` | Traduit JMS en `ReceivedMessage`. Contrôle la taille, les lectures binaires, les métadonnées et les formats refusés. Le record privé `DecodedBody` regroupe uniquement le résultat intermédiaire de décodage. | 15 cas `JmsMessageDecoderTest` |
-| `adapter/in/mq/MessageMqAdapter` | Appelle l'archivage puis réalise le PUT de quarantaine avec la session MQ reçue. Propage les échecs pour permettre le rollback et compte les résultats sans tag par message. | 9 cas `MessageMqAdapterTest`, test du commit SQL avant PUT et scripts MQ réels |
+| `adapter/in/mq/MessageMqAdapter` | Appelle l'archivage puis réalise le PUT de quarantaine avec la session MQ reçue. Propage les échecs pour permettre le rollback. | 9 cas `MessageMqAdapterTest`, test du commit SQL avant PUT et scripts MQ réels |
 | `transaction/TransactionalMessageIngestion` | Décorateur `@Transactional` : le commit SQL se termine avant le retour au listener. | Tests d'intégration de rollback et de visibilité du commit avec une seconde connexion |
 | `adapter/out/persistence/MessageEntity` | Mapping JPA de la table et version optimiste interne. L'accès par champs évite des accesseurs inutiles ; `toDetail()` restitue un modèle immuable. | Migrations, lecture binaire, SQL de projection et conflit optimiste dans `MessageApiIntegrationTest` |
 | `adapter/out/persistence/MessageJpaRepository` | Étend `JpaRepository` et `JpaSpecificationExecutor`. Une seule insertion native `ON CONFLICT DO NOTHING` assure la déduplication concurrente sans invalider la transaction. | 24 insertions concurrentes, rejeu, même identifiant sur deux files et rollback |
@@ -75,7 +75,7 @@ Les chemins sont relatifs à `frontend/src/`. Tous les composants sont standalon
 | `app/App` | Racine minimale : en-tête et emplacement du routeur. | Build et vérification navigateur |
 | `app/app.config.ts` | Active le mode zoneless, le routeur, `HttpClient`, l'intercepteur fonctionnel et la locale. | Build et vérification navigateur ; configuration HTTP équivalente dans les tests de page |
 | `app/app.routes.ts` | Redirige vers la fonctionnalité et charge ses routes à la demande. | Build et navigation navigateur |
-| `environments/environment*.ts`, `core/config/api.config.ts` | Séparent l'URL de l'API de son usage ; `API_BASE_URL` est un token injectable. | `messages-api.spec.ts`, tests de l'intercepteur et build de production |
+| `core/config/api.config.ts` | Définit le préfixe `/api` commun au développement et à Docker ; `API_BASE_URL` reste un token injectable. | `messages-api.spec.ts`, tests de l'intercepteur et build de production |
 | `core/layout/header/Header` | Affiche le titre et le lien de navigation. | Vérification navigateur |
 | `core/interceptors/ApiError` | Erreur applicative typée, avec statut et message lisible. | `error.interceptor.spec.ts`, tests de façade et de page |
 | `core/interceptors/apiErrorInterceptor` | Fonction qui traduit les erreurs réseau/API, y compris 409, sans afficher les détails techniques du serveur. | 7 cas `error.interceptor.spec.ts` |
@@ -86,16 +86,14 @@ Les chemins sont relatifs à `frontend/src/`. Tous les composants sont standalon
 | Type ou module dans `app/features/messages/` | Rôle | Tests associés |
 |---|---|---|
 | `messages.routes.ts` | Charge `MessagesPage` à la demande. | Build et navigation navigateur |
-| `data-access/MessagesApi` | Seul client HTTP de la fonctionnalité ; construit les paramètres sans convertir les identifiants 64 bits en nombres. | 2 cas `messages-api.spec.ts`, 3 tests de page |
+| `data-access/MessagesApi` | Seul client HTTP de la fonctionnalité ; construit les paramètres sans convertir les identifiants 64 bits en nombres. | 2 cas `messages-api.spec.ts`, 4 tests de page |
 | `state/MessagesStore` | Façade fournie par page. Combine RxJS (`switchMap`, `catchError`, `startWith`) et signals (`signal`, `computed`, `toSignal`) pour recherche, pagination et sélection. | 8 cas `messages.store.spec.ts` et tests de page |
-| `pages/message-list/MessagesPage` | Orchestre le formulaire, le tableau, le détail et le loader ; ne connaît pas `HttpClient`. | 3 cas `messages-page.integration.spec.ts` |
-| `components/message-filters/MessageFiltersComponent` | Formulaire réactif typé et non nullable ; valide longueurs et période puis émet les filtres en ISO 8601. | 5 cas `message-filters.spec.ts`, recherche depuis le DOM dans les tests de page |
+| `pages/message-list/MessagesPage` | Orchestre le formulaire, le tableau, le détail et le loader ; ne connaît pas `HttpClient`. | 4 cas `messages-page.integration.spec.ts` |
+| `components/message-filters/MessageFiltersComponent` | Formulaire réactif typé et non nullable ; trois filtres principaux et section HTML native pour corrélation/dates. Valide longueurs et période puis émet les filtres en ISO 8601. | 5 cas `message-filters.spec.ts`, recherches simple et avancée depuis le DOM dans les tests de page |
 | `dateRangeValidator` | Fonction pure de validation de groupe ; refuse les dates invalides ou une fin qui ne suit pas le début. | Tests du formulaire |
-| `components/message-table/MessageTable` | Présente les métadonnées et émet la sélection ; entrées/sorties signals, suivi des lignes par identifiant. | Tests de page : affichage, sélection et pagination |
+| `components/message-table/MessageTable` | Affiche quatre colonnes : identifiant/corrélation, application, réception et statut. Un clic sur l'identifiant émet la sélection ; entrées/sorties signals et suivi des lignes par identifiant. | Tests de page : affichage, sélection et pagination |
 | `components/message-status/MessageStatusComponent` | Traduit le statut technique en libellé visuel français. | Tests du tableau/détail et vérification navigateur |
-| `components/message-detail/MessageDetailComponent` | Affiche une fenêtre `dialog`, le contenu échappé, le chargement ou l'erreur ; émet la fermeture et déclenche le téléchargement. | `message-detail.spec.ts`, tests de page pour le détail 404, vérification navigateur |
-| `utils/messageBlob` | Fonction pure qui restitue les octets Base64 ou le texte UTF-8 dans un `Blob`. | 2 cas `message-download.spec.ts` |
-| `utils/downloadMessage` | Crée le lien de téléchargement et libère l'URL temporaire. | Vérification navigateur du téléchargement ; conversion des octets testée séparément |
+| `components/message-detail/MessageDetailComponent` | Affiche une fenêtre `dialog`, le contenu échappé, le chargement ou l'erreur, puis émet la fermeture. | 3 cas `message-detail.spec.ts` : texte échappé, Base64 et quarantaine ; tests de page pour le détail 404 |
 
 `models/message.model.ts` contient les interfaces immuables du contrat : `MessageSummary`, `MessageDetail`, `MessagePage`, `MessageFilters` et `LoadState<T>`, ainsi que `BodyType`, `MessageStatus`, `EMPTY_FILTERS` et `EMPTY_PAGE`. Les tests du client, de la façade, du formulaire et de la page utilisent ces contrats. `Query`, privé à la façade, associe les filtres à leur curseur sans créer un service supplémentaire. `testing/message.fixture.ts` fournit uniquement les exemples partagés entre tests.
 

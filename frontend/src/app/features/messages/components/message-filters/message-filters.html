@@ -22,19 +22,24 @@
           <option value="QUARANTINED">En quarantaine</option>
         </select></label
       >
-      <label
-        >Corrélation exacte<input
-          formControlName="correlationId"
-          placeholder="Identifiant de corrélation"
-          maxlength="512"
-      /></label>
-      <label>Reçu à partir du<input type="datetime-local" formControlName="from" /></label>
-      <label>Reçu avant le<input type="datetime-local" formControlName="to" /></label>
     </div>
+    <details class="advanced-filters" [open]="form.hasError('dateRange')">
+      <summary>Filtres avancés</summary>
+      <div class="filters">
+        <label
+          >Corrélation exacte<input
+            formControlName="correlationId"
+            placeholder="Identifiant de corrélation"
+            maxlength="512"
+        /></label>
+        <label>Reçu à partir du<input type="datetime-local" formControlName="from" /></label>
+        <label>Reçu avant le<input type="datetime-local" formControlName="to" /></label>
+      </div>
+      <small>Les dates utilisent le fuseau horaire de votre navigateur.</small>
+    </details>
     <div class="actions">
       <button class="button" type="submit">Rechercher</button
-      ><button class="button secondary" type="button" (click)="reset()">Réinitialiser</button
-      ><small>Les dates utilisent le fuseau horaire de votre navigateur.</small>
+      ><button class="button secondary" type="button" (click)="reset()">Réinitialiser</button>
     </div>
     @if (error()) {
       <p class="error" role="alert">{{ error() }}</p>

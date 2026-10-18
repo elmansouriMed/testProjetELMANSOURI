@@ -26,7 +26,8 @@ button:disabled {
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
-select:focus-visible {
+select:focus-visible,
+summary:focus-visible {
   outline: 3px solid #65b4cc;
   outline-offset: 3px;
 }
@@ -104,16 +105,6 @@ input::placeholder {
 .button.secondary:hover:not(:disabled) {
   background: #f0f5f7;
 }
-.text-button {
-  border: 0;
-  background: none;
-  padding: 0;
-  color: #21657e;
-  font-size: 12px;
-}
-.text-button:hover {
-  text-decoration: underline;
-}
 .error {
   border: 1px solid #f0cdc6;
   background: #fff2ef;
@@ -122,16 +113,6 @@ input::placeholder {
   color: #9c4135;
   font-size: 13px;
   margin-bottom: 20px;
-}
-.sr-only {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
 }
 @media (max-width: 520px) {
   h1 {

@@ -2,7 +2,7 @@
 
 Auteur : ELMANSOURI Mohamed.
 
-La suite comprend 99 cas : 71 côté Java et 28 côté Angular. Les tests paramétrés comptent chaque jeu de données. Les vérifications visent les risques fonctionnels ; aucun pourcentage de couverture ou objectif de débit n'est déduit du nombre de tests.
+La suite comprend 100 cas : 71 côté Java et 29 côté Angular. Les tests paramétrés comptent chaque jeu de données. Les vérifications visent les risques fonctionnels ; aucun pourcentage de couverture ou objectif de débit n'est déduit du nombre de tests.
 
 ## Backend : 71 cas
 
@@ -10,7 +10,7 @@ La suite comprend 99 cas : 71 côté Java et 28 côté Angular. Les tests param�
 |---|---:|---|
 | `MessageModelTest` | 10 | Copie défensive des contenus et des pages, motif de quarantaine obligatoire, bornes de pagination et période valide |
 | `JmsMessageDecoderTest` | 15 | Texte vide, taille en octets UTF-8, limite exacte, source absente ou trop longue, métadonnées et corrélation binaire, identifiant obligatoire, lectures binaires fragmentées ou incomplètes, erreur JMS |
-| `MessageMqAdapterTest` | 9 | Archivage avant retour, absence d'acquittement manuel, doublons, erreur SQL, quarantaine sur la session reçue, échec du PUT, fermeture du producteur et métriques d'échec |
+| `MessageMqAdapterTest` | 9 | Archivage avant retour, absence d'acquittement manuel, doublons, erreur SQL, quarantaine sur la session reçue, échec du PUT et fermeture du producteur |
 | `ArchitectureTest` | 4 | Indépendance du cœur, sens des dépendances, isolation des adaptateurs et absence de cycles |
 | `MessageApiIntegrationTest` | 20 | Spring Boot, migrations Flyway, JPA, transaction SQL et HTTP réels avec PostgreSQL temporaire ; projection SQL et conflit optimiste entre deux transactions |
 | `ApiExceptionHandlerTest` | 8 | Conseil REST, validation, conversion, message absent, conflit 409 distinct d'une indisponibilité 503 avec Retry-After, et erreur interne 500 sans fuite technique |
@@ -41,7 +41,7 @@ Le dernier scénario utilise le véritable décodeur JMS, le port d'ingestion, s
 
 Sous Windows : `./mvnw.cmd verify`. Java 21+ est nécessaire ; sous Linux, PostgreSQL demande un utilisateur non root. Les rapports se trouvent dans `backend/target/surefire-reports/`.
 
-## Frontend : 28 cas
+## Frontend : 29 cas
 
 | Suite | Cas | Responsabilités vérifiées |
 |---|---:|---|
@@ -49,11 +49,10 @@ Sous Windows : `./mvnw.cmd verify`. Java 21+ est nécessaire ; sous Linux, Postg
 | Client REST | 2 | Filtres et caractères spéciaux, curseur 64 bits, propagation des erreurs |
 | Façade `MessagesStore` | 8 | Annulation des recherches/détails obsolètes, destruction, reprise après erreur, conservation des filtres, remise à zéro des curseurs et doubles clics de pagination |
 | Formulaire | 5 | Ordre des dates, dates égales, conversion ISO, longueurs et réinitialisation après erreur |
-| Détail | 1 | Contenu HTML affiché comme texte, sans interprétation |
-| Téléchargement | 2 | Octets binaires intacts et encodage UTF-8 avec accents et symbole euro |
-| Intégration de la page | 3 | Formulaire → HTTP → tableau/pagination, détail indisponible et reprise après 503 |
+| Détail | 3 | Contenu HTML affiché comme texte, binaire consultable en Base64 et quarantaine avec contenu absent |
+| Intégration de la page | 4 | Formulaire → HTTP → tableau/pagination, filtres avancés et réinitialisation, détail indisponible et reprise après 503 |
 
-Les trois tests de page assemblent les véritables composants, le formulaire, la façade, le client REST et l'intercepteur. Ils déclenchent des événements DOM puis contrôlent le rendu. `HttpTestingController` remplace uniquement le transport HTTP ; la méthode native `dialog.showModal` est adaptée à l'environnement DOM de test. Ces tests ne démarrent pas de serveur backend et ne remplacent pas la vérification navigateur.
+Les quatre tests de page assemblent les véritables composants, le formulaire, la façade, le client REST et l'intercepteur. Ils déclenchent des événements DOM puis contrôlent le rendu. `HttpTestingController` remplace uniquement le transport HTTP ; la méthode native `dialog.showModal` est adaptée à l'environnement DOM de test. Ces tests ne démarrent pas de serveur backend et ne remplacent pas la vérification navigateur.
 
 ```sh
 cd frontend

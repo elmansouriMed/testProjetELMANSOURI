@@ -4,7 +4,7 @@
 
 Cette application lit les messages déposés dans une file IBM MQ, les enregistre dans PostgreSQL et permet de les consulter depuis une interface Web.
 
-Elle reste centrée sur trois fonctions : rechercher les messages, consulter leur détail et télécharger leur contenu. Aucune authentification ou autorisation applicative n’est implémentée, conformément au besoin.
+L'interface contient une seule page : rechercher les messages et consulter leur détail en cliquant sur l'identifiant MQ. Les trois filtres principaux sont visibles ; la corrélation et les dates sont regroupées dans « Filtres avancés ». Aucune authentification ou autorisation applicative n'est implémentée, conformément au besoin.
 
 ## Technologies
 
@@ -51,7 +51,6 @@ docker compose ps
 | Interface | http://localhost:4200 |
 | API | http://localhost:8080/api/messages |
 | État de l’API et de la base | http://localhost:8080/actuator/health/readiness |
-| Métriques | http://localhost:8080/actuator/prometheus |
 | IBM MQ | localhost:1414 · QM1 · DEV.APP.SVRCONN |
 | PostgreSQL | localhost:5432 · base et utilisateur `payments` |
 
@@ -69,7 +68,7 @@ Pour tester la quarantaine, ajouter `--app.publisher.invalid=true` : le producte
 
 ## Tester
 
-La suite comprend **71 tests Java**, dont 20 cas d'intégration avec PostgreSQL et HTTP réels, et **28 tests Angular**, dont 3 tests d'intégration de la page. Le [plan de tests](docs/tests.md) précise les scénarios et les frontières de simulation.
+La suite comprend **71 tests Java**, dont 20 cas d'intégration avec PostgreSQL et HTTP réels, et **29 tests Angular**, dont 4 tests d'intégration de la page. Le [plan de tests](docs/tests.md) précise les scénarios et les frontières de simulation.
 
 Le backend demande Java 21+ ; les tests démarrent leur propre PostgreSQL temporaire et ne modifient pas la base de développement. Sous Linux, les exécuter avec un utilisateur non root.
 
@@ -123,48 +122,13 @@ curl "http://localhost:8080/api/messages/1"
 - Quatre consommateurs et un pool SQL de 16 connexions par défaut, réglables par `MQ_CONSUMERS` et `DB_POOL_SIZE`. La pagination utilise un curseur, sans `OFFSET` ni comptage global.
 - Les files locales utilisent `BOTHRESH(0)` pour empêcher un déplacement automatique hors de la file d’entrée pendant une panne SQL.
 
-Le débit doit être mesuré sur l’infrastructure cible. Un scénario HTTP k6 est fourni dans `scripts/load.js`. Le Compose local ne constitue pas une configuration haute disponibilité.
+Le débit doit être mesuré sur l'infrastructure cible. Le Compose local ne constitue pas une configuration haute disponibilité.
 
 ## Organisation
 
-```text
-backend/src/main/java/fr/bank/payments/
-  messages/
-    domain/model/              Records, invariants et types métier
-    application/port/in/       Cas d'utilisation ingestion et consultation
-    application/port/out/      Contrat de stockage
-    application/service/       Services Java indépendants des frameworks
-    infrastructure/
-      adapter/in/mq/           Réception et décodage JMS
-      adapter/in/rest/         Contrôleur, DTO et mapping HTTP
-      adapter/out/persistence/ Entité, repository Spring Data JPA et adaptateur
-      transaction/            Décorateur transactionnel Spring
-      config/                 Assemblage des dépendances et configuration MQ
-  shared/exception/            Gestion des erreurs HTTP
-frontend/src/app/
-  core/                       Configuration, intercepteur HTTP et en-tête
-  shared/                     Loader réutilisable
-  features/messages/
-    pages/                    Page de consultation
-    components/               Filtres, tableau, statut et détail
-    data-access/              Client REST typé
-    models/                   Modèles et états de chargement
-    state/                    Façade de page : RxJS et signals
-    utils/                    Téléchargement du contenu
-docker/     Définition des files MQ
-scripts/    Initialisation et tests de bout en bout
-docs/       Architecture, contrat API et correspondance avec les exigences
-```
+Le backend organise la fonctionnalité `messages` en `domain`, `application` et `infrastructure`. Les ports isolent les services des adaptateurs JMS, REST et JPA. MapStruct produit les DTO ; `@RestControllerAdvice` centralise les erreurs et `@Version` reste interne à JPA. Les migrations conservent les archives existantes.
 
-Le backend suit une architecture hexagonale : les cas d'utilisation dépendent de ports, les adaptateurs utilisent Spring Data JPA ou JMS. Des tests ArchUnit protègent cette séparation. Les routes et filtres REST sont conservés ; les réponses sont limitées aux métadonnées utiles à la consultation.
-
-Le repository JPA utilise des specifications pour les filtres et une projection sans contenu pour les listes. Une seule requête d'insertion native conserve la déduplication atomique PostgreSQL. MapStruct 1.6.3 génère le mapping des DTO REST pendant la compilation et refuse les propriétés cibles non mappées. `@RestControllerAdvice` centralise les erreurs au format `ProblemDetail`.
-
-L'entité possède une version optimiste `@Version`, ajoutée par la migration V3 et réservée à la persistance. Un test avec deux transactions vérifie le rejet d'une version périmée. L'API reste en lecture seule : aucun endpoint de modification n'est ajouté. La déduplication des livraisons MQ continue de dépendre de la clé unique, indépendamment du verrouillage optimiste.
-
-Les champs `sentAt`, `redelivered` et `payloadSize` ne sont plus exposés ni collectés. La migration V2 conserve leurs anciennes valeurs en base pour les installations existantes ; aucune archive n'est supprimée. La limite de taille reste contrôlée dans le décodeur MQ.
-
-Angular utilise des composants standalone `OnPush`, le mode zoneless, des routes chargées à la demande, des formulaires réactifs typés et les API `input`/`output`. La façade locale combine `switchMap` pour annuler les requêtes obsolètes et `toSignal` pour exposer leur état aux templates avec nettoyage automatique à la destruction de la page. Aucun gestionnaire d'état externe n'est nécessaire.
+Angular suit `core`, `shared` et `features/messages`, avec composants standalone, formulaires réactifs typés et façade RxJS/signals fournie par page. Le préfixe `/api` est identique en développement et dans Docker ; les proxys assurent le relais vers le backend.
 
 Pour travailler hors des conteneurs applicatifs : démarrer `docker compose up -d postgres mq`, charger les variables de `.env` dans le terminal puis lancer `./mvnw -pl backend spring-boot:run`. Dans un second terminal, exécuter `npm start` depuis `frontend/`. Le serveur Angular relaie `/api` vers le backend local.
 

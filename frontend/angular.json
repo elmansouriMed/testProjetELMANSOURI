@@ -28,12 +28,6 @@
                   "maximumWarning": "600kB",
                   "maximumError": "1MB"
                 }
-              ],
-              "fileReplacements": [
-                {
-                  "with": "src/environments/environment.production.ts",
-                  "replace": "src/environments/environment.ts"
-                }
               ]
             },
             "development": {

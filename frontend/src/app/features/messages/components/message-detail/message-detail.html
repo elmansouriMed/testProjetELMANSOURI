@@ -36,8 +36,7 @@
     </dl>
     @if (message().rejectionReason) {
       <p class="quarantine-note">
-        {{ message().rejectionReason }}. Le transfert en quarantaine MQ est effectué après
-        l’enregistrement en base, lors de la validation de la transaction MQ.
+        {{ message().rejectionReason }}
       </p>
     }
     @if (error()) {
@@ -45,18 +44,13 @@
     } @else if (loading()) {
       <app-loader message="Chargement du contenu…" />
     } @else if (detail(); as content) {
-      <div class="payload-heading">
-        <h3>
-          {{ content.base64Payload !== null ? 'Contenu binaire (Base64)' : 'Contenu du message' }}
-        </h3>
-        @if (content.textPayload !== null || content.base64Payload !== null) {
-          <button class="text-button" (click)="download()">Télécharger</button>
-        }
-      </div>
+      <h3 class="payload-heading">
+        {{ content.base64Payload !== null ? 'Contenu binaire (Base64)' : 'Contenu du message' }}
+      </h3>
       @if (content.textPayload !== null || content.base64Payload !== null) {
         <pre class="payload">{{ content.textPayload ?? content.base64Payload }}</pre>
       } @else {
-        <p>Le contenu original est conservé dans MQ, en attente ou dans la file de quarantaine.</p>
+        <p>Le contenu de ce message n’est pas disponible à la consultation.</p>
       }
     }
   </div>

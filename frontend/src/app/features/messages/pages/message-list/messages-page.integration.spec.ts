@@ -112,6 +112,38 @@ describe('Intégration de la page de consultation', () => {
     expect(fixture.nativeElement.querySelectorAll('tbody tr')).toHaveLength(1);
   });
 
+  it('applique les filtres avancés puis les efface lors de la réinitialisation', async () => {
+    initialPage();
+    await render();
+    const advanced: HTMLDetailsElement = fixture.nativeElement.querySelector('details');
+    expect(advanced.open).toBe(false);
+    advanced.querySelector('summary')!.click();
+    await render();
+    expect(advanced.open).toBe(true);
+    for (const [field, value] of [
+      ['correlationId', 'paiement+42'],
+      ['from', '2026-10-18T09:00'],
+    ]) {
+      const input: HTMLInputElement = advanced.querySelector(`[formControlName="${field}"]`)!;
+      input.value = value;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    fixture.nativeElement
+      .querySelector('form')
+      .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    const request = http.expectOne((req) => req.params.get('correlationId') === 'paiement+42');
+    expect(request.request.params.get('from')).toBe(new Date('2026-10-18T09:00').toISOString());
+    request.flush({ items: [], nextCursor: null, hasMore: false });
+    await render();
+    button('Réinitialiser').click();
+    initialPage();
+    await render();
+    expect(
+      advanced.querySelector<HTMLInputElement>('[formControlName="correlationId"]')?.value,
+    ).toBe('');
+    expect(fixture.nativeElement.querySelectorAll('tbody tr')).toHaveLength(1);
+  });
+
   it('remplace une erreur de stockage par les résultats après une actualisation réussie', async () => {
     http
       .expectOne('/api/messages?limit=25')

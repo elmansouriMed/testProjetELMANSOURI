@@ -7,7 +7,6 @@ import static org.mockito.Mockito.*;
 import fr.bank.payments.messages.application.port.in.IngestMessageUseCase;
 import fr.bank.payments.messages.domain.model.MessageStatus;
 import fr.bank.payments.messages.infrastructure.config.MqProperties;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import jakarta.jms.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataAccessResourceFailureException;
@@ -28,9 +27,8 @@ class MessageMqAdapterTest {
           true,
           "");
   private final IngestMessageUseCase ingestion = mock(IngestMessageUseCase.class);
-  private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
   private final MessageMqAdapter listener =
-      new MessageMqAdapter(new JmsMessageDecoder(props), ingestion, props, meters);
+      new MessageMqAdapter(new JmsMessageDecoder(props), ingestion, props);
 
   private TextMessage text() throws JMSException {
     var message = mock(TextMessage.class);
@@ -53,8 +51,6 @@ class MessageMqAdapterTest {
                         .equals("paiement émis")));
     verify(message, never()).acknowledge();
     verifyNoInteractions(session);
-    assertThat(meters.get("payments.messages").tag("result", "stored").counter().count())
-        .isEqualTo(1);
   }
 
   @Test
@@ -69,11 +65,14 @@ class MessageMqAdapterTest {
   }
 
   @Test
-  void replayAfterDbCommitDoesNotReinsert() throws Exception {
+  void duplicateDeliveryCompletesWithoutManualAcknowledgment() throws Exception {
     when(ingestion.archive(any())).thenReturn(false);
-    listener.onMessage(text(), mock(Session.class));
-    assertThat(meters.get("payments.messages").tag("result", "duplicate").counter().count())
-        .isEqualTo(1);
+    var message = text();
+    var session = mock(Session.class);
+    listener.onMessage(message, session);
+    verify(ingestion).archive(any());
+    verify(message, never()).acknowledge();
+    verifyNoInteractions(session);
   }
 
   @Test
@@ -145,12 +144,10 @@ class MessageMqAdapterTest {
         .isInstanceOf(DataAccessResourceFailureException.class);
     verifyNoInteractions(session);
     verify(message, never()).acknowledge();
-    assertThat(meters.get("payments.ingestion.failures").counter().count()).isEqualTo(1);
-    assertThat(meters.find("payments.messages").counter()).isNull();
   }
 
   @Test
-  void quarantineSendFailureClosesTheProducerAndDoesNotCountSuccess() throws Exception {
+  void quarantineSendFailureClosesTheProducerForMqRollback() throws Exception {
     var message = mock(MapMessage.class);
     when(message.getJMSMessageID()).thenReturn("ID:send-failure");
     var session = mock(Session.class);
@@ -166,7 +163,5 @@ class MessageMqAdapterTest {
         .hasMessage("put failed");
     verify(producer).close();
     verify(message, never()).acknowledge();
-    assertThat(meters.get("payments.ingestion.failures").counter().count()).isEqualTo(1);
-    assertThat(meters.find("payments.messages").counter()).isNull();
   }
 }

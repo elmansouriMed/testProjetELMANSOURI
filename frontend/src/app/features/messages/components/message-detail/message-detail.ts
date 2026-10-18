@@ -11,7 +11,6 @@ import {
 import { DatePipe } from '@angular/common';
 import { Loader } from '@shared/components/loader/loader';
 import { MessageDetail, MessageSummary } from '../../models/message.model';
-import { downloadMessage } from '../../utils/message-download';
 import { MessageStatusComponent } from '../message-status/message-status';
 
 @Component({
@@ -37,9 +36,5 @@ export class MessageDetailComponent {
   }
   backdrop(event: MouseEvent): void {
     if (event.target === event.currentTarget) this.closed.emit();
-  }
-  download(): void {
-    const detail = this.detail();
-    if (detail) downloadMessage(detail);
   }
 }

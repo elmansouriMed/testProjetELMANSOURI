@@ -24,7 +24,7 @@ Le système reçoit, archive et expose les messages à la consultation. Le conte
 
 Le champ `receivedAt` décrit le **premier archivage réussi**, sans modification à chaque tentative. Deux messages avec des contenus identiques et des identifiants MQ différents restent deux messages distincts. Le producteur doit fournir des messages persistants, avec une durée de vie compatible avec les délais de reprise ; l’application ne peut empêcher l’expiration décidée par le producteur ou la perte d’un message non persistant lors d’une panne MQ.
 
-L’archivage en base et la mise en quarantaine sont deux commits de ressources distinctes : une ligne `QUARANTINED` peut être visible avant que l’envoi MQ aboutisse. Le texte de l’IHM tient compte de cette validation différée. Le nouveau message de quarantaine peut recevoir un nouvel identifiant MQ ; la référence SQL conserve l’identifiant reçu sur la file d’entrée.
+L'archivage en base et la mise en quarantaine sont deux commits de ressources distinctes : une ligne `QUARANTINED` peut être visible avant que l'envoi MQ aboutisse. L'IHM affiche le motif de rejet sans annoncer la fin du transfert MQ. Le nouveau message de quarantaine peut recevoir un nouvel identifiant MQ ; la référence SQL conserve l'identifiant reçu sur la file d'entrée.
 
 La déduplication repose sur la conservation de la clé `(source_queue, mq_message_id)`. Une politique de purge doit conserver ces clés au moins pendant la fenêtre maximale de rejeu (ou les déplacer dans un registre de déduplication). Elle n’est pas fondée sur un hash de contenu, qui supprimerait des paiements légitimement identiques.
 
@@ -108,7 +108,7 @@ La route `/messages` charge la page à la demande. Les composants standalone uti
 
 `MessagesStore` est fourni au niveau de la page. Ses flux RxJS reçoivent les recherches et sélections ; `switchMap` annule la requête précédente, notamment lorsqu'on ferme un détail en cours de chargement. Chaque requête émet un état de chargement puis un résultat ou une erreur. `catchError` reste dans le flux interne pour qu'une erreur n'empêche pas les recherches suivantes. `toSignal` expose cet état aux templates et gère le désabonnement avec le cycle de vie de la page. Les composants de présentation n'appellent pas `HttpClient` et ne font pas de `subscribe` manuel.
 
-Le formulaire réactif typé valide la longueur des filtres et l'ordre des dates avant émission. Le bouton Rechercher déclenche explicitement la recherche ; il n'y a pas de requête à chaque frappe. Le retour à une page précédente conserve les filtres appliqués. L'intercepteur fonctionnel transforme les erreurs API en messages lisibles sans exposer les détails SQL. La fenêtre native `dialog` gère le focus modal et la fermeture par Échap ; Angular échappe le contenu affiché. Les formulaires réactifs typés suffisent ici, sans dépendance à une API de formulaire expérimentale.
+Le formulaire réactif typé valide la longueur des filtres et l'ordre des dates avant émission. L'identifiant MQ, la source et le statut restent visibles ; un élément HTML natif `details` regroupe corrélation et dates. Une période invalide ouvre cette section pour permettre la correction. Le bouton Rechercher déclenche explicitement la recherche ; il n'y a pas de requête à chaque frappe. Le retour à une page précédente conserve les filtres appliqués. L'intercepteur fonctionnel transforme les erreurs API en messages lisibles sans exposer les détails SQL. La fenêtre native `dialog` gère le focus modal et la fermeture par Échap ; Angular échappe le contenu affiché. Les formulaires réactifs typés suffisent ici, sans dépendance à une API de formulaire expérimentale.
 
 Prettier utilise explicitement le parseur Angular pour les templates et le pipeline vérifie le formatage. Les tests couvrent l'annulation, la reprise après erreur, la pagination, le nettoyage à la destruction, le formulaire, les erreurs HTTP et l'affichage échappé.
 
@@ -116,7 +116,7 @@ Prettier utilise explicitement le parseur Angular pour les templates et le pipel
 
 L’environnement Compose sert au développement et aux tests, avec une instance de chaque service. Il ne constitue pas une configuration haute disponibilité. Pour la production : utiliser le MQ existant avec TLS, fournir `MQ_SSL_CIPHER_SUITE` et les paramètres de truststore JVM, externaliser les secrets, déployer PostgreSQL avec sauvegardes/restauration vérifiées, superviser la profondeur des files et les taux de rollback, et configurer les ressources des instances applicatives. Le TLS n’est pas activé dans le Compose local.
 
-L’interface et l’API n’intègrent aucune authentification, selon la demande. Les payloads sont affichés comme du texte échappé par Angular et ne sont pas interprétés comme du HTML. Ils ne sont pas écrits dans les journaux applicatifs. Les métriques évitent les identifiants de message et autres tags à forte cardinalité.
+L'interface et l'API n'intègrent aucune authentification, selon la demande. Les payloads sont affichés comme du texte échappé par Angular et ne sont pas interprétés comme du HTML. Ils ne sont pas écrits dans les journaux applicatifs. Seul l'endpoint Actuator de santé est exposé ; il sert aux sondes Docker et au test de reprise.
 
 ## Sources techniques
 
